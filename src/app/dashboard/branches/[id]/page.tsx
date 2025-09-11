@@ -57,8 +57,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { branches, issues as initialIssues } from "@/lib/data"
 import { Branch, Issue } from "@/lib/types"
+import { addIssue, deleteIssue, getBranch, getIssuesForBranch, updateIssue } from "@/lib/firestore"
 import { anomalyDetectionSummary } from "@/ai/flows/anomaly-detection-summary"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -172,12 +172,25 @@ export default function BranchDetailPage() {
   const { toast } = useToast()
 
   React.useEffect(() => {
-    const foundBranch = branches.find((b) => b.id === branchId)
-    if (foundBranch) {
-      setBranch(foundBranch)
-      setIssues(initialIssues.filter((i) => i.branchId === branchId))
+    const fetchBranchData = async () => {
+      try {
+        const foundBranch = await getBranch(branchId);
+        if (foundBranch) {
+          setBranch(foundBranch);
+          const branchIssues = await getIssuesForBranch(branchId);
+          setIssues(branchIssues);
+        } else {
+          toast({ variant: "destructive", title: "Error", description: "Branch not found." });
+        }
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to fetch branch data." });
+      }
+    };
+
+    if (branchId) {
+      fetchBranchData();
     }
-  }, [branchId])
+  }, [branchId, toast]);
 
   const filteredIssues = issues
     .filter((issue) => statusFilter === "all" || issue.status === statusFilter)
@@ -203,7 +216,7 @@ export default function BranchDetailPage() {
     setIsDialogOpen(true)
   }
 
-  const handleSaveIssue = () => {
+  const handleSaveIssue = async () => {
     if (!description || !responsibility || !date) {
       toast({
         variant: "destructive",
@@ -213,38 +226,38 @@ export default function BranchDetailPage() {
       return
     }
 
-    if (currentIssue) {
-      setIssues(
-        issues.map((i) =>
-          i.id === currentIssue.id
-            ? { ...i, description, responsibility, status, date: date.toISOString() }
-            : i
-        )
-      )
-      toast({ title: "Success", description: "Issue updated successfully." })
-    } else {
-      const newIssue: Issue = {
-        id: (initialIssues.length + issues.length + 1).toString(),
-        branchId: branch!.id,
-        description,
-        responsibility,
-        status,
-        date: date.toISOString(),
-      }
-      setIssues([...issues, newIssue])
-      toast({ title: "Success", description: "Issue logged successfully." })
+    const issueData = { description, responsibility, status, date: date.toISOString(), branchId: branch!.id };
+
+    try {
+        if (currentIssue) {
+          const updated = await updateIssue(currentIssue.id, issueData);
+          setIssues(issues.map((i) => (i.id === currentIssue.id ? updated : i)));
+          toast({ title: "Success", description: "Issue updated successfully." });
+        } else {
+          const newIssue = await addIssue(issueData);
+          setIssues([...issues, newIssue]);
+          toast({ title: "Success", description: "Issue logged successfully." });
+        }
+    } catch(e) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to save issue." });
     }
+    
     setIsDialogOpen(false)
   }
   
-  const handleDeleteIssue = (id: string) => {
-    setIssues(issues.filter(i => i.id !== id));
-    toast({ title: "Success", description: "Issue deleted successfully." })
+  const handleDeleteIssue = async (id: string) => {
+    try {
+        await deleteIssue(id);
+        setIssues(issues.filter(i => i.id !== id));
+        toast({ title: "Success", description: "Issue deleted successfully." })
+    } catch(e) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to delete issue." });
+    }
   }
 
 
   if (!branch) {
-    return <div>Branch not found.</div>
+    return <div>Loading branch details...</div>
   }
 
   return (

@@ -8,7 +8,6 @@ import {
   Search,
   MoreHorizontal,
   Upload,
-  Firebase
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -54,19 +53,39 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { branches as initialBranches } from "@/lib/data"
 import { Branch } from "@/lib/types"
+import { addBranch, deleteBranch, getBranches, updateBranch } from "@/lib/firestore"
 
 export default function Dashboard() {
-  const [branches, setBranches] = React.useState<Branch[]>(initialBranches)
+  const [branches, setBranches] = React.useState<Branch[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [currentBranch, setCurrentBranch] = React.useState<Branch | null>(null)
   const [branchId, setBranchId] = React.useState("")
   const [branchName, setBranchName] = React.useState("")
   const [branchIp, setBranchIp] = React.useState("")
+  const [loading, setLoading] = React.useState(true)
+
 
   const { toast } = useToast()
+
+  React.useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const branchesFromDb = await getBranches();
+        setBranches(branchesFromDb);
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error fetching branches",
+          description: "Could not fetch branches from the database.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBranches();
+  }, [toast]);
 
   const filteredBranches = branches.filter(
     (branch) =>
@@ -88,7 +107,7 @@ export default function Dashboard() {
     setIsDialogOpen(true)
   }
 
-  const handleSaveBranch = () => {
+  const handleSaveBranch = async () => {
     if (!branchId || !branchName || !branchIp) {
       toast({
         variant: "destructive",
@@ -98,35 +117,41 @@ export default function Dashboard() {
       return
     }
 
-    if (currentBranch) {
-      // Edit branch
-      setBranches(
-        branches.map((b) =>
-          b.id === currentBranch.id
-            ? { ...b, branchId, name: branchName, ipAddress: branchIp }
-            : b
-        )
-      )
-      toast({ title: "Success", description: "Branch updated successfully." })
-    } else {
-      // Add new branch
-      const newBranch: Branch = {
-        id: (branches.length + 1).toString(),
-        branchId,
-        name: branchName,
-        ipAddress: branchIp,
-      }
-      setBranches([...branches, newBranch])
-      toast({ title: "Success", description: "Branch added successfully." })
+    try {
+        if (currentBranch) {
+          const updatedBranch = await updateBranch(currentBranch.id, { branchId, name: branchName, ipAddress: branchIp });
+          setBranches(branches.map(b => b.id === currentBranch.id ? updatedBranch : b));
+          toast({ title: "Success", description: "Branch updated successfully." });
+        } else {
+          const newBranch = await addBranch({ branchId, name: branchName, ipAddress: branchIp });
+          setBranches([...branches, newBranch]);
+          toast({ title: "Success", description: "Branch added successfully." });
+        }
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Error saving branch",
+            description: "Could not save the branch to the database.",
+        });
     }
+
 
     setIsDialogOpen(false)
     setCurrentBranch(null)
   }
 
-  const handleDeleteBranch = (id: string) => {
-    setBranches(branches.filter(b => b.id !== id));
-    toast({ title: "Success", description: "Branch deleted successfully." })
+  const handleDeleteBranch = async (id: string) => {
+    try {
+        await deleteBranch(id);
+        setBranches(branches.filter(b => b.id !== id));
+        toast({ title: "Success", description: "Branch deleted successfully." });
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Error deleting branch",
+            description: "Could not delete the branch from the database.",
+        });
+    }
   }
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -246,40 +271,46 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBranches.map((branch) => (
-                  <TableRow key={branch.id}>
-                    <TableCell>
-                      <Badge variant="outline">{branch.branchId}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                        <Link href={`/dashboard/branches/${branch.id}`} className="hover:underline">
-                            {branch.name}
-                        </Link>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {branch.ipAddress}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            aria-haspopup="true"
-                            size="icon"
-                            variant="ghost"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onSelect={() => handleOpenDialog(branch)}>Edit</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => handleDeleteBranch(branch.id)} className="text-destructive">Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center">Loading...</TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredBranches.map((branch) => (
+                    <TableRow key={branch.id}>
+                      <TableCell>
+                        <Badge variant="outline">{branch.branchId}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                          <Link href={`/dashboard/branches/${branch.id}`} className="hover:underline">
+                              {branch.name}
+                          </Link>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {branch.ipAddress}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-haspopup="true"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => handleOpenDialog(branch)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleDeleteBranch(branch.id)} className="text-destructive">Delete</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
