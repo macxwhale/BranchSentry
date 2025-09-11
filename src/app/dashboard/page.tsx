@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Upload,
 } from "lucide-react"
+import Papa from "papaparse"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -156,14 +157,63 @@ export default function Dashboard() {
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Here you would process the CSV file
-      console.log("Uploading file:", file.name);
-      toast({
-        title: "File Uploaded",
-        description: `${file.name} has been uploaded.`,
-      });
+    if (!file) {
+      return;
     }
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const branchesToAdd: Omit<Branch, 'id'>[] = [];
+        for (const row of results.data) {
+          const branchData = row as { branchId: string, name: string, ipAddress: string };
+          if (branchData.branchId && branchData.name && branchData.ipAddress) {
+            branchesToAdd.push({
+              branchId: branchData.branchId,
+              name: branchData.name,
+              ipAddress: branchData.ipAddress,
+            });
+          }
+        }
+
+        if (branchesToAdd.length > 0) {
+          try {
+            const newBranches: Branch[] = [];
+            for (const branch of branchesToAdd) {
+              const newBranch = await addBranch(branch);
+              newBranches.push(newBranch);
+            }
+            setBranches(prev => [...prev, ...newBranches]);
+            toast({
+              title: "Upload Successful",
+              description: `${newBranches.length} branches have been added.`,
+            });
+          } catch (error) {
+            toast({
+              variant: "destructive",
+              title: "Error uploading branches",
+              description: "Could not save the branches to the database.",
+            });
+          }
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Invalid CSV format",
+            description: "The CSV file must have 'branchId', 'name', and 'ipAddress' columns.",
+          });
+        }
+      },
+      error: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Error parsing CSV",
+          description: error.message,
+        });
+      },
+    });
+     // Reset file input
+    event.target.value = '';
   };
   
   return (
