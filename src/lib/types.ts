@@ -12,4 +12,6 @@ export type Issue = {
   date: string; // ISO string
   responsibility: string;
   status: 'Open' | 'In Progress' | 'Resolved';
+  ticketNumber?: string;
+  ticketUrl?: string;
 };

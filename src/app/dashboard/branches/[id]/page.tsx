@@ -75,6 +75,8 @@ export default function BranchDetailPage() {
   const [responsibility, setResponsibility] = React.useState("")
   const [status, setStatus] = React.useState<Issue["status"]>("Open")
   const [date, setDate] = React.useState<Date | undefined>(new Date())
+  const [ticketNumber, setTicketNumber] = React.useState("")
+  const [ticketUrl, setTicketUrl] = React.useState("")
 
   const { toast } = useToast()
 
@@ -114,11 +116,15 @@ export default function BranchDetailPage() {
       setResponsibility(issue.responsibility)
       setStatus(issue.status)
       setDate(new Date(issue.date))
+      setTicketNumber(issue.ticketNumber || "")
+      setTicketUrl(issue.ticketUrl || "")
     } else {
       setDescription("")
       setResponsibility("")
       setStatus("Open")
       setDate(new Date())
+      setTicketNumber("")
+      setTicketUrl("")
     }
     setIsDialogOpen(true)
   }
@@ -133,7 +139,15 @@ export default function BranchDetailPage() {
       return
     }
 
-    const issueData = { description, responsibility, status, date: date.toISOString(), branchId: branch!.id };
+    const issueData = { 
+      description, 
+      responsibility, 
+      status, 
+      date: date.toISOString(), 
+      branchId: branch!.id,
+      ticketNumber,
+      ticketUrl,
+    };
 
     try {
         if (currentIssue) {
@@ -220,6 +234,16 @@ export default function BranchDetailPage() {
                   <div className="grid gap-2">
                     <Label htmlFor="description">Description</Label>
                     <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="ticketNumber">Ticket Number</Label>
+                      <Input id="ticketNumber" value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)} />
+                    </div>
+                     <div className="grid gap-2">
+                      <Label htmlFor="ticketUrl">Ticket URL</Label>
+                      <Input id="ticketUrl" value={ticketUrl} onChange={(e) => setTicketUrl(e.target.value)} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
@@ -318,6 +342,7 @@ export default function BranchDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Description</TableHead>
+                    <TableHead className="hidden sm:table-cell">Ticket</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Date</TableHead>
                     <TableHead className="text-right">Assigned To</TableHead>
@@ -330,6 +355,15 @@ export default function BranchDetailPage() {
                       <TableCell>
                         <div className="font-medium">{issue.description}</div>
                       </TableCell>
+                       <TableCell className="hidden sm:table-cell">
+                        {issue.ticketUrl && issue.ticketNumber ? (
+                            <a href={issue.ticketUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                {issue.ticketNumber}
+                            </a>
+                        ) : (
+                            issue.ticketNumber
+                        )}
+                       </TableCell>
                        <TableCell className="hidden sm:table-cell">
                         <Badge className="text-xs" variant={issue.status === 'Resolved' ? 'secondary' : (issue.status === 'Open' ? 'destructive' : 'default')}>{issue.status}</Badge>
                       </TableCell>
@@ -364,5 +398,3 @@ export default function BranchDetailPage() {
     </div>
   )
 }
-
-      
