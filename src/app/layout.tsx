@@ -7,7 +7,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'BranchWise',
+  title: 'Branch Sentry',
   description: 'A comprehensive branch management app to track and log issues for each branch.',
 };
 

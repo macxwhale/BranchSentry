@@ -60,9 +60,9 @@ export default function DashboardLayout({
             className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
           >
             <GitBranch className="h-4 w-4 transition-all group-hover:scale-110" />
-            <span className="sr-only">BranchWise</span>
+            <span className="sr-only">Branch Sentry</span>
           </Link>
-          <span className="text-lg font-bold">BranchWise</span>
+          <span className="text-lg font-bold">Branch Sentry</span>
         </nav>
         <nav className="mt-5 grid items-start px-2 text-sm font-medium">
           <Link
@@ -90,7 +90,7 @@ export default function DashboardLayout({
                   className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
                 >
                   <GitBranch className="h-5 w-5 transition-all group-hover:scale-110" />
-                  <span className="sr-only">BranchWise</span>
+                  <span className="sr-only">Branch Sentry</span>
                 </Link>
                 <Link
                   href="/dashboard"

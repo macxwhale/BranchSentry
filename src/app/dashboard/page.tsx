@@ -6,7 +6,9 @@ import {
   File,
   PlusCircle,
   Search,
-  MoreHorizontal
+  MoreHorizontal,
+  Upload,
+  Firebase
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -126,6 +128,26 @@ export default function Dashboard() {
     setBranches(branches.filter(b => b.id !== id));
     toast({ title: "Success", description: "Branch deleted successfully." })
   }
+  
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Here you would process the CSV file
+      console.log("Uploading file:", file.name);
+      toast({
+        title: "File Uploaded",
+        description: `${file.name} has been uploaded.`,
+      });
+    }
+  };
+  
+  const handleConnectFirebase = () => {
+    toast({
+        title: "Connect to Firebase",
+        description: "Connecting to Firebase...",
+    });
+    // In a real app, you'd trigger the Firebase connection flow here.
+  }
 
   return (
     <Tabs defaultValue="all">
@@ -134,6 +156,19 @@ export default function Dashboard() {
           <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
+           <Button size="sm" variant="outline" onClick={handleConnectFirebase}>
+             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="mr-2 h-4 w-4" viewBox="0 0 16 16">
+                <path d="M7.674 1.542.872 9.543a.25.25 0 0 0 .193.424h3.454l-.32 4.403c-.023.32.293.488.52.285L15.128 6.46a.25.25 0 0 0-.193-.424H11.48l.32-4.403c.023-.32-.293-.488-.52-.285L7.674 1.542Z"/>
+            </svg>
+            Connect to Firebase
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <Label htmlFor="csv-upload" className="cursor-pointer">
+               <Upload className="h-3.5 w-3.5 mr-2" />
+               Upload CSV
+               <Input id="csv-upload" type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
+            </Label>
+          </Button>
           <div className="relative ml-auto flex-1 md:grow-0">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -200,8 +235,8 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Branch Name</TableHead>
                   <TableHead>Branch ID</TableHead>
+                  <TableHead>Branch Name</TableHead>
                   <TableHead className="hidden md:table-cell">
                     IP Address
                   </TableHead>
@@ -213,13 +248,13 @@ export default function Dashboard() {
               <TableBody>
                 {filteredBranches.map((branch) => (
                   <TableRow key={branch.id}>
+                    <TableCell>
+                      <Badge variant="outline">{branch.branchId}</Badge>
+                    </TableCell>
                     <TableCell className="font-medium">
                         <Link href={`/dashboard/branches/${branch.id}`} className="hover:underline">
                             {branch.name}
                         </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{branch.branchId}</Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {branch.ipAddress}
