@@ -77,6 +77,8 @@ export default function BranchDetailPage() {
   const [date, setDate] = React.useState<Date | undefined>(new Date())
   const [ticketNumber, setTicketNumber] = React.useState("")
   const [ticketUrl, setTicketUrl] = React.useState("")
+  const [closingDate, setClosingDate] = React.useState<Date | undefined>()
+
 
   const { toast } = useToast()
 
@@ -118,6 +120,7 @@ export default function BranchDetailPage() {
       setDate(new Date(issue.date))
       setTicketNumber(issue.ticketNumber || "")
       setTicketUrl(issue.ticketUrl || "")
+      setClosingDate(issue.closingDate ? new Date(issue.closingDate) : undefined)
     } else {
       setDescription("")
       setResponsibility("")
@@ -125,6 +128,7 @@ export default function BranchDetailPage() {
       setDate(new Date())
       setTicketNumber("")
       setTicketUrl("")
+      setClosingDate(undefined)
     }
     setIsDialogOpen(true)
   }
@@ -139,7 +143,7 @@ export default function BranchDetailPage() {
       return
     }
 
-    const issueData = { 
+    const issueData: Omit<Issue, 'id'> = { 
       description, 
       responsibility, 
       status, 
@@ -148,6 +152,15 @@ export default function BranchDetailPage() {
       ticketNumber,
       ticketUrl,
     };
+    
+    if (status === 'Resolved' && (!currentIssue || currentIssue.status !== 'Resolved')) {
+      issueData.closingDate = new Date().toISOString();
+    } else if (status !== 'Resolved') {
+        issueData.closingDate = undefined;
+    } else if (currentIssue?.closingDate) {
+        issueData.closingDate = currentIssue.closingDate;
+    }
+
 
     try {
         if (currentIssue) {
@@ -344,7 +357,8 @@ export default function BranchDetailPage() {
                     <TableHead>Description</TableHead>
                     <TableHead className="hidden sm:table-cell">Ticket</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Date</TableHead>
+                    <TableHead className="hidden md:table-cell">Opened</TableHead>
+                    <TableHead className="hidden md:table-cell">Closed</TableHead>
                     <TableHead className="text-right">Assigned To</TableHead>
                     <TableHead><span className="sr-only">Actions</span></TableHead>
                   </TableRow>
@@ -368,6 +382,9 @@ export default function BranchDetailPage() {
                         <Badge className="text-xs" variant={issue.status === 'Resolved' ? 'secondary' : (issue.status === 'Open' ? 'destructive' : 'default')}>{issue.status}</Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{new Date(issue.date).toLocaleDateString()}</TableCell>
+                       <TableCell className="hidden md:table-cell">
+                        {issue.closingDate ? new Date(issue.closingDate).toLocaleDateString() : 'N/A'}
+                      </TableCell>
                       <TableCell className="text-right">{issue.responsibility}</TableCell>
                       <TableCell>
                          <DropdownMenu>
@@ -398,3 +415,5 @@ export default function BranchDetailPage() {
     </div>
   )
 }
+
+    

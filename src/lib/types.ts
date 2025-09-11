@@ -14,4 +14,7 @@ export type Issue = {
   status: 'Open' | 'In Progress' | 'Resolved';
   ticketNumber?: string;
   ticketUrl?: string;
+  closingDate?: string; // ISO string
 };
+
+    
