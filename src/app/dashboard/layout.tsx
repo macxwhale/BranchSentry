@@ -1,6 +1,8 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
+import { useRouter, usePathname } from "next/navigation"
 import {
   Avatar,
   AvatarFallback,
@@ -34,7 +36,7 @@ import {
   Settings,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { usePathname } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function DashboardLayout({
   children,
@@ -42,6 +44,19 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const { user, loading, logout } = useAuth()
+  const router = useRouter()
+
+  React.useEffect(() => {
+    if (!loading && !user) {
+      router.push("/")
+    }
+  }, [user, loading, router])
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/")
+  }
 
   const formatPathname = (path: string) => {
     return path
@@ -50,6 +65,10 @@ export default function DashboardLayout({
       .map(p => p.charAt(0).toUpperCase() + p.slice(1))
       .join(' / ');
   };
+
+  if (loading || !user) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -136,8 +155,8 @@ export default function DashboardLayout({
                 className="overflow-hidden rounded-full"
               >
                 <Avatar>
-                  <AvatarImage src="https://picsum.photos/seed/user/32/32" alt="User avatar" />
-                  <AvatarFallback>U</AvatarFallback>
+                  <AvatarImage src={user.photoURL || `https://picsum.photos/seed/user/32/32`} alt="User avatar" />
+                  <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -147,7 +166,7 @@ export default function DashboardLayout({
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
