@@ -144,7 +144,7 @@ export default function BranchDetailPage() {
       return
     }
 
-    const issueData: Omit<Issue, 'id'> & { closingDate?: string } = {
+    const issueData: Partial<Omit<Issue, 'id'>> = {
       description,
       responsibility,
       status,
@@ -154,12 +154,14 @@ export default function BranchDetailPage() {
       ticketUrl,
     };
 
-    if (status === 'Resolved' && (!currentIssue || currentIssue.status !== 'Resolved')) {
-      issueData.closingDate = new Date().toISOString();
-    } else if (status !== 'Resolved') {
-      issueData.closingDate = undefined;
-    } else if (currentIssue?.closingDate) {
-      issueData.closingDate = currentIssue.closingDate;
+    if (status === 'Resolved') {
+        if (!currentIssue || currentIssue.status !== 'Resolved') {
+             issueData.closingDate = new Date().toISOString();
+        } else if (currentIssue?.closingDate) {
+            issueData.closingDate = currentIssue.closingDate;
+        }
+    } else {
+        issueData.closingDate = undefined;
     }
 
 
@@ -169,7 +171,7 @@ export default function BranchDetailPage() {
         setIssues(issues.map((i) => (i.id === currentIssue.id ? { ...i, ...updated, id: currentIssue.id } : i)));
         toast({ title: "Success", description: "Issue updated successfully." });
       } else {
-        const newIssue = await addIssue(issueData);
+        const newIssue = await addIssue(issueData as Omit<Issue, 'id'>);
         setIssues([...issues, newIssue]);
         toast({ title: "Success", description: "Issue logged successfully." });
       }
