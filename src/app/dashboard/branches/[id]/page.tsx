@@ -143,39 +143,39 @@ export default function BranchDetailPage() {
       return
     }
 
-    const issueData: Omit<Issue, 'id'> = { 
-      description, 
-      responsibility, 
-      status, 
-      date: date.toISOString(), 
+    const issueData: Omit<Issue, 'id'> & { closingDate?: string } = {
+      description,
+      responsibility,
+      status,
+      date: date.toISOString(),
       branchId: branch!.id,
       ticketNumber,
       ticketUrl,
     };
-    
+
     if (status === 'Resolved' && (!currentIssue || currentIssue.status !== 'Resolved')) {
       issueData.closingDate = new Date().toISOString();
     } else if (status !== 'Resolved') {
-        issueData.closingDate = undefined;
+      issueData.closingDate = undefined;
     } else if (currentIssue?.closingDate) {
-        issueData.closingDate = currentIssue.closingDate;
+      issueData.closingDate = currentIssue.closingDate;
     }
 
 
     try {
-        if (currentIssue) {
-          const updated = await updateIssue(currentIssue.id, issueData);
-          setIssues(issues.map((i) => (i.id === currentIssue.id ? updated : i)));
-          toast({ title: "Success", description: "Issue updated successfully." });
-        } else {
-          const newIssue = await addIssue(issueData);
-          setIssues([...issues, newIssue]);
-          toast({ title: "Success", description: "Issue logged successfully." });
-        }
-    } catch(e) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to save issue." });
+      if (currentIssue) {
+        const updated = await updateIssue(currentIssue.id, issueData);
+        setIssues(issues.map((i) => (i.id === currentIssue.id ? { ...i, ...updated, id: currentIssue.id } : i)));
+        toast({ title: "Success", description: "Issue updated successfully." });
+      } else {
+        const newIssue = await addIssue(issueData);
+        setIssues([...issues, newIssue]);
+        toast({ title: "Success", description: "Issue logged successfully." });
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to save issue." });
     }
-    
+
     setIsDialogOpen(false)
   }
   
@@ -415,5 +415,3 @@ export default function BranchDetailPage() {
     </div>
   )
 }
-
-    

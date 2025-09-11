@@ -49,14 +49,22 @@ export const getIssuesForBranch = async (branchId: string): Promise<Issue[]> => 
 
 export const addIssue = async (issue: Omit<Issue, 'id'>): Promise<Issue> => {
     const docRef = await addDoc(collection(db, 'issues'), issue);
-    return { id: docRef.id, ...issue };
+    const newIssue = await getDoc(docRef);
+    return { id: newIssue.id, ...newIssue.data() } as Issue;
 };
 
-export const updateIssue = async (id: string, data: Partial<Omit<Issue, 'id'>>): Promise<Issue> => {
+export const updateIssue = async (id: string, data: Partial<Omit<Issue, 'id'>>): Promise<Partial<Issue>> => {
     const issueRef = doc(db, 'issues', id);
-    await updateDoc(issueRef, data);
+    // Make sure to handle undefined closingDate correctly
+    const updateData = { ...data };
+    if (data.closingDate === undefined) {
+        // Firestore doesn't like `undefined`, so we convert it or remove it.
+        // In this case, we'll just send the rest of the data.
+        delete (updateData as Partial<Issue>).closingDate;
+    }
+    await updateDoc(issueRef, updateData);
     const updatedDoc = await getDoc(issueRef);
-    return { id: updatedDoc.id, ...updatedDoc.data() } as Issue;
+    return { id: updatedDoc.id, ...updatedDoc.data() };
 };
 
 export const deleteIssue = async (id: string): Promise<void> => {
