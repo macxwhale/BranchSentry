@@ -70,23 +70,26 @@ export default function Dashboard() {
 
   const { toast } = useToast()
 
-  React.useEffect(() => {
-    const fetchBranches = async () => {
-      try {
-        const branchesFromDb = await getBranches();
-        setBranches(branchesFromDb);
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error fetching branches",
-          description: "Could not fetch branches from the database.",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBranches();
+  const fetchBranches = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const branchesFromDb = await getBranches();
+      setBranches(branchesFromDb);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error fetching branches",
+        description: "Could not fetch branches from the database.",
+      });
+    } finally {
+      setLoading(false);
+    }
   }, [toast]);
+
+
+  React.useEffect(() => {
+    fetchBranches();
+  }, [fetchBranches]);
 
   const filteredBranches = branches.filter(
     (branch) =>
@@ -124,10 +127,10 @@ export default function Dashboard() {
           setBranches(branches.map(b => b.id === currentBranch.id ? updatedBranch : b));
           toast({ title: "Success", description: "Branch updated successfully." });
         } else {
-          const newBranch = await addBranch({ branchId, name: branchName, ipAddress: branchIp });
-          setBranches([...branches, newBranch]);
+          await addBranch({ branchId, name: branchName, ipAddress: branchIp });
           toast({ title: "Success", description: "Branch added successfully." });
         }
+        fetchBranches();
     } catch (error) {
         toast({
             variant: "destructive",
@@ -179,15 +182,13 @@ export default function Dashboard() {
 
         if (branchesToAdd.length > 0) {
           try {
-            const newBranches: Branch[] = [];
             for (const branch of branchesToAdd) {
-              const newBranch = await addBranch(branch);
-              newBranches.push(newBranch);
+              await addBranch(branch);
             }
-            setBranches(prev => [...prev, ...newBranches]);
+            await fetchBranches();
             toast({
               title: "Upload Successful",
-              description: `${newBranches.length} branches have been added.`,
+              description: `${branchesToAdd.length} branches have been added.`,
             });
           } catch (error) {
             toast({
@@ -287,7 +288,7 @@ export default function Dashboard() {
       <TabsContent value="all">
         <Card>
           <CardHeader>
-            <CardTitle>Branches</CardTitle>
+            <CardTitle>Branch Sentry</CardTitle>
             <CardDescription>
               Manage your branches and view their details.
             </CardDescription>
