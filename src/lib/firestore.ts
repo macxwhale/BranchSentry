@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, FieldValue } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, FieldValue, deleteField } from 'firebase/firestore';
 import { Branch, Issue } from './types';
 
 // Branches
@@ -55,20 +55,14 @@ export const addIssue = async (issue: Omit<Issue, 'id'>): Promise<Issue> => {
 
 export const updateIssue = async (id: string, data: Partial<Omit<Issue, 'id'>>): Promise<Partial<Issue>> => {
     const issueRef = doc(db, 'issues', id);
-    const updateData = { ...data };
+    const updateData: { [key: string]: any } = { ...data };
     
     if (data.closingDate === undefined) {
-      // If closingDate is explicitly set to undefined, we may need to remove it.
-      // Firestore's `updateDoc` won't remove a field if the value is undefined in the payload.
-      // To remove it, you'd typically use `deleteField()`, but for simplicity, we'll
-      // just ensure it's not part of the update if it's not a valid date string.
-      // Let's create a new object without the undefined property.
-      const { closingDate, ...rest } = updateData;
-      await updateDoc(issueRef, rest);
-
-    } else {
-      await updateDoc(issueRef, updateData);
+      // To remove a field, we need to use `deleteField`.
+      updateData.closingDate = deleteField();
     }
+    
+    await updateDoc(issueRef, updateData);
 
     const updatedDoc = await getDoc(issueRef);
     return { id: updatedDoc.id, ...updatedDoc.data() };
