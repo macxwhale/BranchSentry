@@ -6,9 +6,6 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
-  Wrench,
-  Bot,
-  Loader2
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -24,11 +21,10 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -54,105 +50,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { Branch, Issue } from "@/lib/types"
 import { addIssue, deleteIssue, getBranch, getIssuesForBranch, updateIssue } from "@/lib/firestore"
-import { anomalyDetectionSummary } from "@/ai/flows/anomaly-detection-summary"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
-
-function AnomalyDetector({ branch, issues }: { branch: Branch; issues: Issue[] }) {
-  const [metrics, setMetrics] = React.useState(
-    "CPU Usage: 85%, Memory Usage: 92%, Disk I/O: 150mb/s, Network Traffic: High"
-  );
-  const [summary, setSummary] = React.useState<string | null>(null)
-  const [isLoading, setIsLoading] = React.useState(false)
-  const { toast } = useToast()
-
-  const handleAnalyze = async () => {
-    setIsLoading(true)
-    setSummary(null)
-    try {
-      const issueHistory = issues
-        .map(
-          (i) =>
-            `${i.date}: ${i.description} (Assigned: ${i.responsibility}, Status: ${i.status})`
-        )
-        .join("\n")
-
-      const result = await anomalyDetectionSummary({
-        branchId: branch.branchId,
-        issueHistory: issueHistory,
-        systemPerformanceMetrics: metrics,
-      })
-      setSummary(result.summary)
-    } catch (error) {
-      console.error("Anomaly detection failed:", error)
-      toast({
-        variant: "destructive",
-        title: "Analysis Failed",
-        description: "Could not generate anomaly summary.",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Anomaly Detection</CardTitle>
-        <CardDescription>
-          Automatically detect potential issues based on logged data and system
-          performance metrics.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <Label htmlFor="perf-metrics">System Performance Metrics</Label>
-          <Textarea
-            id="perf-metrics"
-            placeholder="Paste system performance metrics here..."
-            value={metrics}
-            onChange={(e) => setMetrics(e.target.value)}
-            className="mt-2"
-          />
-        </div>
-        <Button onClick={handleAnalyze} disabled={isLoading}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <Bot className="mr-2 h-4 w-4" />
-              Run Analysis
-            </>
-          )}
-        </Button>
-      </CardContent>
-      {summary && (
-        <CardFooter>
-          <Card className="w-full">
-            <CardHeader>
-              <CardTitle>Analysis Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm">{summary}</p>
-            </CardContent>
-          </Card>
-        </CardFooter>
-      )}
-    </Card>
-  )
-}
 
 export default function BranchDetailPage() {
   const params = useParams()
@@ -290,12 +197,11 @@ export default function BranchDetailPage() {
           </CardHeader>
         </Card>
       </div>
-      <Tabs defaultValue="issues">
+       <div className="grid gap-4">
         <div className="flex items-center">
-          <TabsList>
-            <TabsTrigger value="issues">Issue History</TabsTrigger>
-            <TabsTrigger value="ai">Anomaly Detection</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold">Issue History</h1>
+          </div>
           <div className="ml-auto flex items-center gap-2">
              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
@@ -368,7 +274,6 @@ export default function BranchDetailPage() {
             </Dialog>
           </div>
         </div>
-        <TabsContent value="issues">
           <Card>
             <CardHeader className="px-7">
               <CardTitle>Issues</CardTitle>
@@ -446,11 +351,7 @@ export default function BranchDetailPage() {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
-        <TabsContent value="ai">
-          <AnomalyDetector branch={branch} issues={issues} />
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   )
 }
