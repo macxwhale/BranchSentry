@@ -140,25 +140,11 @@ export default function BranchDetailPage() {
         variant: "destructive",
         title: "Error",
         description: "All fields are required.",
-      })
-      return
+      });
+      return;
     }
 
-    let closingDateISO: string | undefined = undefined;
-
-    if (status === 'Resolved') {
-        // If status is changing to Resolved, set new closing date.
-        if (!currentIssue || currentIssue.status !== 'Resolved') {
-            closingDateISO = new Date().toISOString();
-        } else if (currentIssue?.closingDate) {
-            // If it was already resolved, keep the original closing date.
-            closingDateISO = currentIssue.closingDate;
-        }
-    }
-    // If status is not 'Resolved', closingDateISO remains undefined, which will cause the field to be removed.
-
-
-    const issueData: Partial<Omit<Issue, 'id'>> & { closingDate?: string } = {
+    const issueData: Partial<Issue> & { branchId: string } = {
       description,
       responsibility,
       status,
@@ -166,9 +152,22 @@ export default function BranchDetailPage() {
       branchId: branch!.id,
       ticketNumber,
       ticketUrl,
-      closingDate: closingDateISO,
     };
 
+    if (status === 'Resolved') {
+      // If status is changing to Resolved, set new closing date.
+      if (!currentIssue || currentIssue.status !== 'Resolved') {
+        issueData.closingDate = new Date().toISOString();
+      } else if (currentIssue?.closingDate) {
+        // If it was already resolved, keep the original closing date.
+        issueData.closingDate = currentIssue.closingDate;
+      }
+    } else {
+        // For updates, if it's not resolved, we ensure closingDate is set for deletion in the Firestore function.
+        if (currentIssue) {
+            (issueData as any).closingDate = undefined;
+        }
+    }
 
     try {
       if (currentIssue) {
@@ -186,7 +185,8 @@ export default function BranchDetailPage() {
     }
 
     setIsDialogOpen(false)
-  }
+  };
+
   
   const handleDeleteIssue = async (id: string) => {
     try {
