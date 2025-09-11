@@ -223,8 +223,17 @@ export default function BranchDetailPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="responsibility">Assigned To</Label>
-                      <Input id="responsibility" value={responsibility} onChange={(e) => setResponsibility(e.target.value)} />
+                      <Label htmlFor="responsibility">Responsibility</Label>
+                      <Select value={responsibility} onValueChange={setResponsibility}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select responsibility" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CRDB">CRDB</SelectItem>
+                          <SelectItem value="Zaoma">Zaoma</SelectItem>
+                          <SelectItem value="Wavetec">Wavetec</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="status">Status</Label>
@@ -355,3 +364,5 @@ export default function BranchDetailPage() {
     </div>
   )
 }
+
+      
