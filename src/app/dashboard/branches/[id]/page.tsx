@@ -7,6 +7,7 @@ import {
   PlusCircle,
   Search,
 } from "lucide-react"
+import { format } from "date-fns"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -57,7 +58,6 @@ import { addIssue, deleteIssue, getBranch, getIssuesForBranch, updateIssue } fro
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
 
@@ -110,6 +110,7 @@ export default function BranchDetailPage() {
         issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         issue.responsibility.toLowerCase().includes(searchTerm.toLowerCase())
     )
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const handleOpenDialog = (issue: Issue | null) => {
     setCurrentIssue(issue)
@@ -298,7 +299,7 @@ export default function BranchDetailPage() {
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date ? format(date, "PPP") : <span>Pick a date</span>}
+                            {date ? format(date, "dd MMM yyyy") : <span>Pick a date</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -381,9 +382,9 @@ export default function BranchDetailPage() {
                        <TableCell className="hidden sm:table-cell">
                         <Badge className="text-xs" variant={issue.status === 'Resolved' ? 'secondary' : (issue.status === 'Open' ? 'destructive' : 'default')}>{issue.status}</Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">{new Date(issue.date).toLocaleDateString()}</TableCell>
+                      <TableCell className="hidden md:table-cell">{format(new Date(issue.date), "dd MMM yyyy")}</TableCell>
                        <TableCell className="hidden md:table-cell">
-                        {issue.closingDate ? new Date(issue.closingDate).toLocaleDateString() : 'N/A'}
+                        {issue.closingDate ? format(new Date(issue.closingDate), "dd MMM yyyy") : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">{issue.responsibility}</TableCell>
                       <TableCell>
