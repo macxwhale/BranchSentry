@@ -144,7 +144,7 @@ export default function BranchDetailPage() {
       return;
     }
 
-    const issueData: Partial<Issue> & { branchId: string } = {
+    const issueData: Partial<Omit<Issue, 'id'>> & { branchId: string } = {
       description,
       responsibility,
       status,
@@ -155,7 +155,7 @@ export default function BranchDetailPage() {
     };
 
     if (status === 'Resolved') {
-      // If status is changing to Resolved, set new closing date.
+      // If status is changing to Resolved, set a new closing date if it wasn't resolved before.
       if (!currentIssue || currentIssue.status !== 'Resolved') {
         issueData.closingDate = new Date().toISOString();
       } else if (currentIssue?.closingDate) {
@@ -163,12 +163,13 @@ export default function BranchDetailPage() {
         issueData.closingDate = currentIssue.closingDate;
       }
     } else {
-        // For updates, if it's not resolved, we ensure closingDate is set for deletion in the Firestore function.
+        // If the issue is not resolved, ensure there is no closing date.
+        // For updates where the status might be changing from 'Resolved' to something else.
         if (currentIssue) {
-            (issueData as any).closingDate = undefined;
+            issueData.closingDate = undefined;
         }
     }
-
+    
     try {
       if (currentIssue) {
         const updated = await updateIssue(currentIssue.id, issueData);
