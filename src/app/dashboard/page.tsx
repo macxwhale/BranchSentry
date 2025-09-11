@@ -166,14 +166,6 @@ export default function Dashboard() {
     }
   };
   
-  const handleConnectFirebase = () => {
-    toast({
-        title: "Connect to Firebase",
-        description: "Connecting to Firebase...",
-    });
-    // In a real app, you'd trigger the Firebase connection flow here.
-  }
-
   return (
     <Tabs defaultValue="all">
       <div className="flex items-center">
@@ -181,12 +173,6 @@ export default function Dashboard() {
           <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
-           <Button size="sm" variant="outline" onClick={handleConnectFirebase}>
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="mr-2 h-4 w-4" viewBox="0 0 16 16">
-                <path d="M7.674 1.542.872 9.543a.25.25 0 0 0 .193.424h3.454l-.32 4.403c-.023.32.293.488.52.285L15.128 6.46a.25.25 0 0 0-.193-.424H11.48l.32-4.403c.023-.32-.293-.488-.52-.285L7.674 1.542Z"/>
-            </svg>
-            Connect to Firebase
-          </Button>
           <Button size="sm" variant="outline" asChild>
             <Label htmlFor="csv-upload" className="cursor-pointer">
                <Upload className="h-3.5 w-3.5 mr-2" />
