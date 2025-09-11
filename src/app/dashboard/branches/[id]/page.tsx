@@ -144,7 +144,21 @@ export default function BranchDetailPage() {
       return
     }
 
-    const issueData: Partial<Omit<Issue, 'id'>> = {
+    let closingDateISO: string | undefined = undefined;
+
+    if (status === 'Resolved') {
+        // If status is changing to Resolved, set new closing date.
+        if (!currentIssue || currentIssue.status !== 'Resolved') {
+            closingDateISO = new Date().toISOString();
+        } else if (currentIssue?.closingDate) {
+            // If it was already resolved, keep the original closing date.
+            closingDateISO = currentIssue.closingDate;
+        }
+    }
+    // If status is not 'Resolved', closingDateISO remains undefined, which will cause the field to be removed.
+
+
+    const issueData: Partial<Omit<Issue, 'id'>> & { closingDate?: string } = {
       description,
       responsibility,
       status,
@@ -152,17 +166,8 @@ export default function BranchDetailPage() {
       branchId: branch!.id,
       ticketNumber,
       ticketUrl,
+      closingDate: closingDateISO,
     };
-
-    if (status === 'Resolved') {
-        if (!currentIssue || currentIssue.status !== 'Resolved') {
-             issueData.closingDate = new Date().toISOString();
-        } else if (currentIssue?.closingDate) {
-            issueData.closingDate = currentIssue.closingDate;
-        }
-    } else {
-        issueData.closingDate = undefined;
-    }
 
 
     try {
@@ -176,6 +181,7 @@ export default function BranchDetailPage() {
         toast({ title: "Success", description: "Issue logged successfully." });
       }
     } catch (e) {
+      console.error(e);
       toast({ variant: "destructive", title: "Error", description: "Failed to save issue." });
     }
 

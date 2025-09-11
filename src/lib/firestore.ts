@@ -56,9 +56,8 @@ export const addIssue = async (issue: Omit<Issue, 'id'>): Promise<Issue> => {
 export const updateIssue = async (id: string, data: Partial<Omit<Issue, 'id'>>): Promise<Partial<Issue>> => {
     const issueRef = doc(db, 'issues', id);
     const updateData: { [key: string]: any } = { ...data };
-    
+
     if (data.closingDate === undefined) {
-      // To remove a field, we need to use `deleteField`.
       updateData.closingDate = deleteField();
     }
     
