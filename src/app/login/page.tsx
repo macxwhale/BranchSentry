@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [loginPassword, setLoginPassword] = React.useState("")
   const [signupEmail, setSignupEmail] = React.useState("")
   const [signupPassword, setSignupPassword] = React.useState("")
+  const [signupSuccess, setSignupSuccess] = React.useState(false)
 
   const [loading, setLoading] = React.useState(false)
   const { login, signup } = useAuth()
@@ -54,8 +55,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await signup(signupEmail, signupPassword)
-      // No router push here, user needs to be approved first.
-      // Toast is handled in the signup function.
+      setSignupSuccess(true)
       setSignupEmail("")
       setSignupPassword("")
 
@@ -117,43 +117,54 @@ export default function LoginPage() {
           </Card>
         </TabsContent>
         <TabsContent value="signup">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sign Up</CardTitle>
-              <CardDescription>
-                Create a new account to get started. Your account will require admin approval.
-              </CardDescription>
-            </CardHeader>
-            <form onSubmit={handleSignup}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email-signup">Email</Label>
-                  <Input
-                    id="email-signup"
-                    type="email"
-                    placeholder="m@example.com"
-                    required
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-signup">Password</Label>
-                  <Input
-                    id="password-signup"
-                    type="password"
-                    required
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Signing up..." : "Sign Up"}
-                </Button>
-              </CardFooter>
-            </form>
+           <Card>
+            {!signupSuccess ? (
+              <>
+                <CardHeader>
+                  <CardTitle>Sign Up</CardTitle>
+                  <CardDescription>
+                    Create a new account to get started. Your account will require admin approval.
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={handleSignup}>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email-signup">Email</Label>
+                      <Input
+                        id="email-signup"
+                        type="email"
+                        placeholder="m@example.com"
+                        required
+                        value={signupEmail}
+                        onChange={(e) => setSignupEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password-signup">Password</Label>
+                      <Input
+                        id="password-signup"
+                        type="password"
+                        required
+                        value={signupPassword}
+                        onChange={(e) => setSignupPassword(e.target.value)}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? "Signing up..." : "Sign Up"}
+                    </Button>
+                  </CardFooter>
+                </form>
+              </>
+            ) : (
+              <CardHeader className="text-center">
+                 <CardTitle>Thank You for Signing Up!</CardTitle>
+                 <CardDescription className="pt-2">
+                    Your account has been successfully created and is now awaiting approval from an administrator. You will not be able to log in until your account has been approved.
+                 </CardDescription>
+              </CardHeader>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
