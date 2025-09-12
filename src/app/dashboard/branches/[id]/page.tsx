@@ -69,6 +69,7 @@ export default function BranchDetailPage() {
   const [issues, setIssues] = React.useState<Issue[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState("all")
+  const [sortOption, setSortOption] = React.useState("date-desc")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [currentIssue, setCurrentIssue] = React.useState<Issue | null>(null)
   const [description, setDescription] = React.useState("")
@@ -110,7 +111,34 @@ export default function BranchDetailPage() {
         issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         issue.responsibility.toLowerCase().includes(searchTerm.toLowerCase())
     )
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => {
+      switch (sortOption) {
+        case "date-asc":
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        case "date-desc":
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        case "closing-date-asc":
+          if (a.closingDate && b.closingDate) return new Date(a.closingDate).getTime() - new Date(b.closingDate).getTime();
+          if (a.closingDate) return -1;
+          if (b.closingDate) return 1;
+          return 0;
+        case "closing-date-desc":
+          if (a.closingDate && b.closingDate) return new Date(b.closingDate).getTime() - new Date(a.closingDate).getTime();
+          if (a.closingDate) return -1;
+          if (b.closingDate) return 1;
+          return 0;
+        case "status-asc":
+          return a.status.localeCompare(b.status);
+        case "status-desc":
+          return b.status.localeCompare(a.status);
+        case "assigned-asc":
+            return a.responsibility.localeCompare(b.responsibility);
+        case "assigned-desc":
+            return b.responsibility.localeCompare(a.responsibility);
+        default:
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+      }
+    });
 
   const handleOpenDialog = (issue: Issue | null) => {
     setCurrentIssue(issue)
@@ -358,6 +386,21 @@ export default function BranchDetailPage() {
                       <SelectItem value="Resolved">Resolved</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={sortOption} onValueChange={setSortOption}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date-desc">Opened (Newest)</SelectItem>
+                      <SelectItem value="date-asc">Opened (Oldest)</SelectItem>
+                      <SelectItem value="closing-date-desc">Closed (Newest)</SelectItem>
+                      <SelectItem value="closing-date-asc">Closed (Oldest)</SelectItem>
+                      <SelectItem value="status-asc">Status (A-Z)</SelectItem>
+                      <SelectItem value="status-desc">Status (Z-A)</SelectItem>
+                      <SelectItem value="assigned-asc">Assigned To (A-Z)</SelectItem>
+                      <SelectItem value="assigned-desc">Assigned To (Z-A)</SelectItem>
+                    </SelectContent>
+                  </Select>
               </div>
             </CardHeader>
             <CardContent>
@@ -425,3 +468,5 @@ export default function BranchDetailPage() {
     </div>
   )
 }
+
+    
