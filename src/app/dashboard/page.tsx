@@ -40,6 +40,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -60,6 +67,7 @@ import { addBranch, deleteBranch, getBranches, updateBranch } from "@/lib/firest
 export default function Dashboard() {
   const [branches, setBranches] = React.useState<Branch[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [sortOption, setSortOption] = React.useState("name-asc")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [currentBranch, setCurrentBranch] = React.useState<Branch | null>(null)
   const [branchId, setBranchId] = React.useState("")
@@ -91,11 +99,27 @@ export default function Dashboard() {
     fetchBranches();
   }, [fetchBranches]);
 
-  const filteredBranches = branches.filter(
-    (branch) =>
-      branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredAndSortedBranches = branches
+    .filter(
+      (branch) =>
+        branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      switch (sortOption) {
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        case "id-asc":
+          return a.branchId.localeCompare(b.branchId, undefined, { numeric: true });
+        case "id-desc":
+          return b.branchId.localeCompare(a.branchId, undefined, { numeric: true });
+        default:
+          return 0;
+      }
+    });
+
 
   const handleOpenDialog = (branch: Branch | null) => {
     setCurrentBranch(branch)
@@ -231,6 +255,17 @@ export default function Dashboard() {
                <Input id="csv-upload" type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
             </Label>
           </Button>
+          <Select value={sortOption} onValueChange={setSortOption}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+              <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+              <SelectItem value="id-asc">Branch ID (Asc)</SelectItem>
+              <SelectItem value="id-desc">Branch ID (Desc)</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="relative ml-auto flex-1 md:grow-0">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -313,7 +348,7 @@ export default function Dashboard() {
                     <TableCell colSpan={4} className="text-center">Loading...</TableCell>
                   </TableRow>
                 ) : (
-                  filteredBranches.map((branch) => (
+                  filteredAndSortedBranches.map((branch) => (
                     <TableRow key={branch.id}>
                       <TableCell>
                         <Badge variant="outline">{branch.branchId}</Badge>
@@ -353,7 +388,7 @@ export default function Dashboard() {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Showing <strong>1-{filteredBranches.length}</strong> of <strong>{branches.length}</strong> branches
+              Showing <strong>1-{filteredAndSortedBranches.length}</strong> of <strong>{branches.length}</strong> branches
             </div>
           </CardFooter>
         </Card>
