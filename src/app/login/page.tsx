@@ -58,6 +58,10 @@ export default function LoginPage() {
       setSignupSuccess(true)
       setSignupEmail("")
       setSignupPassword("")
+      toast({
+        title: "Signup Successful",
+        description: "Your account has been created and is awaiting approval.",
+      });
 
     } catch (error: any) {
       toast({

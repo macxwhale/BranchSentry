@@ -76,23 +76,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signup = async (email: string, pass: string) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, pass)
-    const user = userCredential.user
-    
+    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    const user = userCredential.user;
+
     // Create a document for the new user in Firestore
-    const userDocRef = doc(db, "users", user.uid)
+    const userDocRef = doc(db, "users", user.uid);
     await setDoc(userDocRef, {
       email: user.email,
       approved: false, // Default to not approved
-    })
+    });
 
     // Log the user out immediately after signup
-    await signOut(auth)
-    
-    toast({
-      title: "Signup Successful",
-      description: "Your account has been created and is awaiting approval.",
-    });
+    await signOut(auth);
   }
 
   const logout = () => {
