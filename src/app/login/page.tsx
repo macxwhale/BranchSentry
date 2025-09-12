@@ -19,8 +19,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 
 export default function LoginPage() {
-  const [email, setEmail] = React.useState("")
-  const [password, setPassword] = React.useState("")
+  const [loginEmail, setLoginEmail] = React.useState("")
+  const [loginPassword, setLoginPassword] = React.useState("")
+  const [signupEmail, setSignupEmail] = React.useState("")
+  const [signupPassword, setSignupPassword] = React.useState("")
+
   const [loading, setLoading] = React.useState(false)
   const { login, signup } = useAuth()
   const router = useRouter()
@@ -30,13 +33,17 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      await login(email, password)
+      await login(loginEmail, loginPassword)
       router.push("/dashboard")
     } catch (error: any) {
+      const errorMessage = error.message === "Your account is not yet approved."
+        ? error.message
+        : "Invalid email or password."
+      
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error.message,
+        description: errorMessage,
       })
       setLoading(false)
     }
@@ -46,14 +53,19 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      await signup(email, password)
-      router.push("/dashboard")
+      await signup(signupEmail, signupPassword)
+      // No router push here, user needs to be approved first.
+      // Toast is handled in the signup function.
+      setSignupEmail("")
+      setSignupPassword("")
+
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Sign Up Failed",
         description: error.message,
       })
+    } finally {
       setLoading(false)
     }
   }
@@ -82,8 +94,8 @@ export default function LoginPage() {
                     type="email"
                     placeholder="m@example.com"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -92,8 +104,8 @@ export default function LoginPage() {
                     id="password-login"
                     type="password"
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
                   />
                 </div>
               </CardContent>
@@ -110,7 +122,7 @@ export default function LoginPage() {
             <CardHeader>
               <CardTitle>Sign Up</CardTitle>
               <CardDescription>
-                Create a new account to get started.
+                Create a new account to get started. Your account will require admin approval.
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSignup}>
@@ -122,8 +134,8 @@ export default function LoginPage() {
                     type="email"
                     placeholder="m@example.com"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -132,8 +144,8 @@ export default function LoginPage() {
                     id="password-signup"
                     type="password"
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
                   />
                 </div>
               </CardContent>

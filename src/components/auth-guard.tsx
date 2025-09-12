@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, isApproved, loading } = useAuth()
   const router = useRouter()
 
   React.useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login")
+    if (!loading) {
+      if (!user || !isApproved) {
+        router.push("/login")
+      }
     }
-  }, [user, loading, router])
+  }, [user, isApproved, loading, router])
 
-  if (loading || !user) {
+  if (loading || !user || !isApproved) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Loading...</p>
