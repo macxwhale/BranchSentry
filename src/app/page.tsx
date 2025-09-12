@@ -2,14 +2,21 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
-// Redirect to the dashboard page
 export default function HomePage() {
   const router = useRouter()
+  const { user, loading } = useAuth()
 
   React.useEffect(() => {
-    router.replace("/dashboard")
-  }, [router])
+    if (!loading) {
+      if (user) {
+        router.replace("/dashboard")
+      } else {
+        router.replace("/login")
+      }
+    }
+  }, [user, loading, router])
 
   return (
     <div className="flex min-h-screen items-center justify-center">
