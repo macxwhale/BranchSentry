@@ -39,6 +39,14 @@ export const deleteBranch = async (id: string): Promise<void> => {
 
 // Issues
 
+export const getAllIssues = async (): Promise<Issue[]> => {
+    const issuesCol = collection(db, 'issues');
+    const issueSnapshot = await getDocs(issuesCol);
+    const issueList = issueSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Issue));
+    return issueList;
+};
+
+
 export const getIssuesForBranch = async (branchId: string): Promise<Issue[]> => {
     const issuesCol = collection(db, 'issues');
     const q = query(issuesCol, where('branchId', '==', branchId));

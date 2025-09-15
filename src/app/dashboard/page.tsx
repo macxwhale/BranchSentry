@@ -10,6 +10,8 @@ import {
   Upload,
 } from "lucide-react"
 import Papa from "papaparse"
+import { format } from "date-fns"
+
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -61,11 +63,12 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { Branch } from "@/lib/types"
-import { addBranch, deleteBranch, getBranches, updateBranch } from "@/lib/firestore"
+import { Branch, Issue } from "@/lib/types"
+import { addBranch, deleteBranch, getBranches, getAllIssues, updateBranch } from "@/lib/firestore"
 
 export default function Dashboard() {
   const [branches, setBranches] = React.useState<Branch[]>([])
+  const [allIssues, setAllIssues] = React.useState<Issue[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
   const [sortOption, setSortOption] = React.useState("name-asc")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -83,11 +86,13 @@ export default function Dashboard() {
     try {
       const branchesFromDb = await getBranches();
       setBranches(branchesFromDb);
+      const issuesFromDb = await getAllIssues();
+      setAllIssues(issuesFromDb);
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error fetching branches",
-        description: "Could not fetch branches from the database.",
+        title: "Error fetching data",
+        description: "Could not fetch data from the database.",
       });
     } finally {
       setLoading(false);
@@ -119,6 +124,19 @@ export default function Dashboard() {
           return 0;
       }
     });
+  
+  const branchesWithLatestOpenIssue = React.useMemo(() => {
+    return branches.map(branch => {
+      const openIssues = allIssues
+        .filter(issue => issue.branchId === branch.id && issue.status === 'Open')
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      return {
+        ...branch,
+        latestOpenIssue: openIssues[0] || null
+      };
+    }).filter(branch => branch.latestOpenIssue);
+  }, [branches, allIssues]);
 
 
   const handleOpenDialog = (branch: Branch | null) => {
@@ -246,6 +264,7 @@ export default function Dashboard() {
       <div className="flex items-center">
         <TabsList>
           <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="open-issues">Open Issues</TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="outline" asChild>
@@ -323,7 +342,7 @@ export default function Dashboard() {
       <TabsContent value="all">
         <Card>
           <CardHeader>
-            <CardTitle>Branch Sentry</CardTitle>
+            <CardTitle>Branches</CardTitle>
             <CardDescription>
               Manage your branches and view their details.
             </CardDescription>
@@ -389,6 +408,53 @@ export default function Dashboard() {
           <CardFooter>
             <div className="text-xs text-muted-foreground">
               Showing <strong>1-{filteredAndSortedBranches.length}</strong> of <strong>{branches.length}</strong> branches
+            </div>
+          </CardFooter>
+        </Card>
+      </TabsContent>
+      <TabsContent value="open-issues">
+        <Card>
+          <CardHeader>
+            <CardTitle>Branches with Open Issues</CardTitle>
+            <CardDescription>
+              Branches with their latest open issue.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Branch Name</TableHead>
+                  <TableHead>Issue Description</TableHead>
+                  <TableHead>Date Opened</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center">Loading...</TableCell>
+                  </TableRow>
+                ) : (
+                  branchesWithLatestOpenIssue.map((branch) => (
+                    <TableRow key={branch.id}>
+                      <TableCell className="font-medium">
+                          <Link href={`/dashboard/branches/${branch.id}`} className="hover:underline">
+                              {branch.name}
+                          </Link>
+                      </TableCell>
+                      <TableCell>{branch.latestOpenIssue!.description}</TableCell>
+                      <TableCell>{format(new Date(branch.latestOpenIssue!.date), "dd MMM yyyy")}</TableCell>
+                      <TableCell>{branch.latestOpenIssue!.responsibility}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+          <CardFooter>
+            <div className="text-xs text-muted-foreground">
+              Showing <strong>{branchesWithLatestOpenIssue.length}</strong> of <strong>{branches.length}</strong> branches with open issues.
             </div>
           </CardFooter>
         </Card>
