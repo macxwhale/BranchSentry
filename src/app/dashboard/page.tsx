@@ -137,6 +137,13 @@ export default function Dashboard() {
       };
     }).filter(branch => branch.latestOpenIssue);
   }, [branches, allIssues]);
+  
+  const filteredBranchesWithOpenIssue = branchesWithLatestOpenIssue
+    .filter(
+      (branch) =>
+        branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
 
   const handleOpenDialog = (branch: Branch | null) => {
@@ -436,7 +443,7 @@ export default function Dashboard() {
                     <TableCell colSpan={4} className="text-center">Loading...</TableCell>
                   </TableRow>
                 ) : (
-                  branchesWithLatestOpenIssue.map((branch) => (
+                  filteredBranchesWithOpenIssue.map((branch) => (
                     <TableRow key={branch.id}>
                       <TableCell className="font-medium">
                           <Link href={`/dashboard/branches/${branch.id}`} className="hover:underline">
@@ -454,7 +461,7 @@ export default function Dashboard() {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Showing <strong>{branchesWithLatestOpenIssue.length}</strong> of <strong>{branches.length}</strong> branches with open issues.
+              Showing <strong>{filteredBranchesWithOpenIssue.length}</strong> of <strong>{branchesWithLatestOpenIssue.length}</strong> branches with open issues.
             </div>
           </CardFooter>
         </Card>
