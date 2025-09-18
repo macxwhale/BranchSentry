@@ -61,16 +61,20 @@ const chatFlow = ai.defineFlow(
     outputSchema: z.string(),
   },
   async (query) => {
+    
+    const prompt = `
+      You are a helpful assistant for an application called Branch Sentry.
+      Your goal is to answer questions based on the data available to you.
+      To do this, you MUST use the tools provided: 'getBranches' for questions about branches and 'getAllIssues' for questions about issues.
+      The data is about bank branches and their reported issues.
+      Be concise and answer only the user's question. Do not add any extra information or pleasantries.
+      If you use the tools and still cannot find the information, say "I don't have enough information to answer that."
+
+      User question: ${query}
+    `
+    
     const llmResponse = await ai.generate({
-      prompt: query,
-      system: `
-        You are a helpful assistant for an application called Branch Sentry.
-        Your goal is to answer questions based on the data available to you.
-        To do this, you MUST use the tools provided: 'getBranches' for questions about branches and 'getAllIssues' for questions about issues.
-        The data is about bank branches and their reported issues.
-        Be concise and answer only the user's question. Do not add any extra information or pleasantries.
-        If you use the tools and still cannot find the information, say "I don't have enough information to answer that."
-      `,
+      prompt: prompt,
       tools: [getBranchesTool, getAllIssuesTool],
       model: 'googleai/gemini-2.5-flash',
     });
