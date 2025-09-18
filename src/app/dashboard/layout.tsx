@@ -29,11 +29,13 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   Building2,
   GitBranch,
+  MessageCircle,
   PanelLeft,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/contexts/auth-context"
 import AuthGuard from "@/components/auth-guard"
+import { Chat } from "@/components/chat"
 
 function DashboardLayoutContent({
   children,
@@ -43,6 +45,8 @@ function DashboardLayoutContent({
   const pathname = usePathname()
   const { logout } = useAuth()
   const router = useRouter()
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
+
 
   const handleLogout = async () => {
     await logout()
@@ -126,6 +130,15 @@ function DashboardLayoutContent({
           <div className="relative ml-auto flex-1 md:grow-0">
           </div>
            <ThemeToggle />
+           <Button
+              variant="outline"
+              size="icon"
+              className="overflow-hidden rounded-full"
+              onClick={() => setIsChatOpen(true)}
+            >
+              <MessageCircle className="h-5 w-5" />
+              <span className="sr-only">Open Chat</span>
+            </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -152,6 +165,7 @@ function DashboardLayoutContent({
         <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
             {children}
         </main>
+        <Chat isOpen={isChatOpen} onOpenChange={setIsChatOpen} />
       </div>
     </div>
   )
