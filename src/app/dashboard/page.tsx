@@ -77,6 +77,9 @@ export default function Dashboard() {
   const [branchName, setBranchName] = React.useState("")
   const [branchIp, setBranchIp] = React.useState("")
   const [loading, setLoading] = React.useState(true)
+  const [openIssuesBranchFilter, setOpenIssuesBranchFilter] = React.useState('');
+  const [openIssuesDescriptionFilter, setOpenIssuesDescriptionFilter] = React.useState('');
+  const [openIssuesAssignedToFilter, setOpenIssuesAssignedToFilter] = React.useState('');
 
 
   const { toast } = useToast()
@@ -143,6 +146,15 @@ export default function Dashboard() {
       (branch) =>
         branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .filter(branch => 
+      branch.name.toLowerCase().includes(openIssuesBranchFilter.toLowerCase())
+    )
+    .filter(branch => 
+      branch.latestOpenIssue!.description.toLowerCase().includes(openIssuesDescriptionFilter.toLowerCase())
+    )
+    .filter(branch => 
+      branch.latestOpenIssue!.responsibility.toLowerCase().includes(openIssuesAssignedToFilter.toLowerCase())
     );
 
 
@@ -426,6 +438,23 @@ export default function Dashboard() {
             <CardDescription>
               Branches with their latest open issue.
             </CardDescription>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+                <Input 
+                    placeholder="Filter by Branch Name..." 
+                    value={openIssuesBranchFilter}
+                    onChange={(e) => setOpenIssuesBranchFilter(e.target.value)}
+                />
+                <Input 
+                    placeholder="Filter by Issue Description..." 
+                    value={openIssuesDescriptionFilter}
+                    onChange={(e) => setOpenIssuesDescriptionFilter(e.target.value)}
+                />
+                <Input 
+                    placeholder="Filter by Assigned To..."
+                    value={openIssuesAssignedToFilter}
+                    onChange={(e) => setOpenIssuesAssignedToFilter(e.target.value)}
+                />
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
