@@ -1,7 +1,9 @@
+
 "use client";
 
 import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,7 +40,7 @@ function SubmitButton() {
 }
 
 export default function SettingsPage() {
-  const [formState, formAction] = useFormState(sendNotification, initialState);
+  const [formState, formAction] = useActionState(sendNotification, initialState);
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
 
