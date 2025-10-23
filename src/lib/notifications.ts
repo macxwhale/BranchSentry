@@ -12,6 +12,10 @@ const notificationSchema = z.object({
   attach: z.string().url("Attachment must be a valid URL.").optional().or(z.literal('')),
 });
 
+const notificationApiSchema = notificationSchema.extend({
+    attach: z.array(z.string().url()).optional(),
+})
+
 export type NotificationInput = z.infer<typeof notificationSchema>;
 export type FormState = {
     message: string;
@@ -19,6 +23,36 @@ export type FormState = {
         [key in keyof NotificationInput]?: string[];
     };
 };
+
+/**
+ * Sends a notification to the configured notification service.
+ * @param notification - The notification object to send.
+ * @returns A promise that resolves to the response from the notification service.
+ */
+export async function sendNotificationApi(notification: z.infer<typeof notificationApiSchema>) {
+    try {
+        const response = await fetch("https://notify-woi3.onrender.com/api/notify", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${process.env.NOTIFY_API_KEY}`,
+            },
+            body: JSON.stringify(notification),
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Notification API Error:", errorBody);
+            throw new Error(`API request failed with status ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Failed to send notification:", error);
+        throw error;
+    }
+}
+
 
 export async function sendNotification(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = notificationSchema.safeParse({
@@ -46,21 +80,7 @@ export async function sendNotification(prevState: FormState, formData: FormData)
     }
 
     try {
-        const response = await fetch("https://notify-woi3.onrender.com/api/notify", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.NOTIFY_API_KEY}`,
-            },
-            body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error("Notification API Error:", errorBody);
-            throw new Error(`API request failed with status ${response.status}`);
-        }
-
+        await sendNotificationApi(requestBody);
         return { message: "Notification sent successfully!" };
     } catch (error) {
         let errorMessage = "An unknown error occurred.";
