@@ -495,12 +495,12 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Team-Specific Reports</CardTitle>
           <CardDescription>
-            Configure and manually trigger automated reports for specific teams. These settings override the defaults.
+            Configure and manually trigger automated reports for specific teams. Report times are in EAT.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-             <h3 className="text-lg font-medium">Report Schedule & Templates (UTC)</h3>
+             <h3 className="text-lg font-medium">Report Schedule & Templates (EAT)</h3>
              {loadingConfigs ? (
                 <div className="space-y-4 pt-2">
                     <Skeleton className="h-12 w-full" />
@@ -532,5 +532,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

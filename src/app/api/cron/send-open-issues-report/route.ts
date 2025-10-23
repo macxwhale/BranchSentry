@@ -147,14 +147,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: 'Cron job ran. No open issues.' });
     }
 
-    const nowUTC = new Date();
-    const currentTimeUTC = format(nowUTC, 'HH:mm', { timeZone: 'UTC' });
+    const now = new Date();
+    const currentTimeEAT = format(now, 'HH:mm', { timeZone: 'Africa/Nairobi' });
     let reportsSentCount = 0;
     
     const teamConfigs = reportConfigs.filter(c => c.id !== DEFAULT_CONFIG_ID);
 
     for (const teamConfig of teamConfigs) {
-      if (teamConfig.enabled && teamConfig.time === currentTimeUTC) {
+      if (teamConfig.enabled && teamConfig.time === currentTimeEAT) {
         const responsibility = teamConfig.id;
         const issuesForTeam = issuesByResponsibility[responsibility];
 
@@ -177,5 +177,3 @@ export async function GET(request: Request) {
     return new NextResponse(JSON.stringify({ message: `Failed to process report: ${errorMessage}` }), { status: 500 });
   }
 }
-
-    
