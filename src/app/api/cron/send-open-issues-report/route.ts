@@ -39,14 +39,16 @@ export async function GET() {
     markdownBody += `There are currently **${openIssues.length}** open or in-progress issues.\n\n---\n\n`;
 
     for (const responsibility in issuesByResponsibility) {
-      markdownBody += `### 👤 Assigned to: ${responsibility}\n`;
+      markdownBody += `### 👤 Assigned to: ${responsibility}\n\n`;
       const issues = issuesByResponsibility[responsibility];
       
       issues.forEach(issue => {
         const branchName = branchesById[issue.branchId]?.name || 'Unknown Branch';
-        markdownBody += `- **${branchName}**: ${issue.description} (Status: *${issue.status}*, Opened: *${format(new Date(issue.date), 'dd MMM')}*)\n`;
+        markdownBody += `🏢 **Branch: ${branchName}**\n`;
+        markdownBody += `📊 Status: ${issue.status}\n`;
+        markdownBody += `🐛 Issue: ${issue.description}\n`;
+        markdownBody += `_(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n\n`;
       });
-      markdownBody += `\n`;
     }
 
     await sendNotificationApi({
