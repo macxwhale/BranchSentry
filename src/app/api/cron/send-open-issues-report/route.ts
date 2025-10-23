@@ -113,7 +113,18 @@ export async function GET(request: Request) {
         for (const team of responsibleParties) {
             const issuesForTeam = issuesByResponsibility[team];
             if (issuesForTeam && issuesForTeam.length > 0) {
-                const teamConfig = configMap.get(team) || { id: team, time: '09:00', enabled: true };
+                const defaultConfig: ReportConfiguration = { 
+                    id: team, 
+                    time: '09:00', 
+                    enabled: true,
+                    channel: 'telegram',
+                    notify_type: 'info',
+                    silent: false,
+                    attach: '',
+                    reportTitle: '',
+                    reportBody: ''
+                };
+                const teamConfig = configMap.get(team) || defaultConfig;
                 await sendConfiguredReport(teamConfig, issuesForTeam, branchesById);
                 reportsSentCount++;
             }
