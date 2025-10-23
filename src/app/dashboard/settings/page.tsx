@@ -115,7 +115,7 @@ function ReportConfigRow({ config, onUpdate, isSaving }: { config: ReportConfigu
                                 <Input
                                     id={`channel-${config.id}`}
                                     placeholder="e.g., telegram"
-                                    value={config.channel || 'telegram'}
+                                    value={config.channel || ''}
                                     onChange={(e) => onUpdate({ ...config, channel: e.target.value })}
                                     disabled={isSaving}
                                 />
@@ -165,12 +165,26 @@ function ReportConfigRow({ config, onUpdate, isSaving }: { config: ReportConfigu
     );
 }
 
+const DEFAULT_CONFIG_ID = "default";
+const initialDefaultConfig: ReportConfiguration = {
+    id: DEFAULT_CONFIG_ID,
+    time: '09:00',
+    enabled: true,
+    reportTitle: '🚨 {issueCount} Open Issues Report for {assignee}',
+    reportBody: '**🚨 Daily Open Issues Report for {assignee} - {date}**\n\nThere are currently **{issueCount}** open or in-progress issues assigned to you.\n\n---\n\n{issueList}',
+    channel: 'telegram',
+    notify_type: 'info',
+    silent: false,
+    attach: '',
+};
+
 export default function SettingsPage() {
   const [formState, formAction] = useActionState(sendNotification, initialState);
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [isSendingReport, setIsSendingReport] = React.useState(false);
-  const [reportConfigs, setReportConfigs] = React.useState<ReportConfiguration[]>([]);
+  const [teamConfigs, setTeamConfigs] = React.useState<ReportConfiguration[]>([]);
+  const [defaultConfig, setDefaultConfig] = React.useState<ReportConfiguration>(initialDefaultConfig);
   const [loadingConfigs, setLoadingConfigs] = React.useState(true);
   const [isSavingConfig, setIsSavingConfig] = React.useState(false);
 
@@ -179,8 +193,15 @@ export default function SettingsPage() {
       setLoadingConfigs(true);
       try {
         const configsFromDb = await getReportConfigurations();
-        // Ensure all configs have default values for the UI to prevent uncontrolled inputs
-        const completeConfigs = configsFromDb.map(config => ({
+        
+        const defaultFromDb = configsFromDb.find(c => c.id === DEFAULT_CONFIG_ID);
+        if (defaultFromDb) {
+            setDefaultConfig(defaultFromDb);
+        }
+
+        const teamsFromDb = configsFromDb.filter(c => c.id !== DEFAULT_CONFIG_ID);
+        
+        const completeConfigs = teamsFromDb.map(config => ({
             id: config.id,
             time: config.time || '09:00',
             enabled: config.enabled ?? true,
@@ -191,7 +212,7 @@ export default function SettingsPage() {
             silent: config.silent ?? false,
             attach: config.attach || '',
         }));
-        setReportConfigs(completeConfigs.sort((a,b) => a.id.localeCompare(b.id)));
+        setTeamConfigs(completeConfigs.sort((a,b) => a.id.localeCompare(b.id)));
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Could not fetch report configurations." });
       } finally {
@@ -243,8 +264,8 @@ export default function SettingsPage() {
     }
   };
 
-  const handleConfigUpdate = (updatedConfig: ReportConfiguration) => {
-    setReportConfigs(prevConfigs => 
+  const handleTeamConfigUpdate = (updatedConfig: ReportConfiguration) => {
+    setTeamConfigs(prevConfigs => 
         prevConfigs.map(c => c.id === updatedConfig.id ? updatedConfig : c)
     );
   };
@@ -252,7 +273,8 @@ export default function SettingsPage() {
   const handleSaveConfig = async () => {
     setIsSavingConfig(true);
     try {
-      await Promise.all(reportConfigs.map(config => updateReportConfiguration(config)));
+      const allConfigsToSave = [...teamConfigs, defaultConfig];
+      await Promise.all(allConfigsToSave.map(config => updateReportConfiguration(config)));
       toast({
         title: "Configuration Saved",
         description: "Your report settings have been updated.",
@@ -267,6 +289,10 @@ export default function SettingsPage() {
       setIsSavingConfig(false);
     }
   };
+  
+  const handleDefaultConfigUpdate = (updatedConfig: ReportConfiguration) => {
+    setDefaultConfig(updatedConfig);
+  }
 
   return (
     <div className="grid gap-6">
@@ -362,11 +388,114 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+      
+      <Card>
+         <CardHeader>
+          <CardTitle>Default Report Settings</CardTitle>
+          <CardDescription>
+            These settings are used as a fallback for any team-specific configuration.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+             {loadingConfigs ? (
+                 <div className="space-y-4 pt-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-40 w-full" />
+                </div>
+             ) : (
+                <div className="grid gap-4 pt-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="default-title">Default Report Title</Label>
+                        <Input
+                            id="default-title"
+                            placeholder="e.g., 🚨 Daily Report for {assignee}"
+                            value={defaultConfig.reportTitle || ''}
+                            onChange={(e) => handleDefaultConfigUpdate({ ...defaultConfig, reportTitle: e.target.value })}
+                            disabled={isSavingConfig}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <div className="flex items-center gap-2">
+                           <Label htmlFor="default-body">Default Report Body</Label>
+                             <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="text-sm">Available placeholders:<br/>- `'{'{assignee}'}'`: The team name<br/>- `'{'{issueCount}'}'`: Number of open issues<br/>- `'{'{date}'}'`: Current date<br/>- `'{'{issueList}'}'`: The formatted list of issues</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                        <Textarea
+                            id="default-body"
+                            placeholder="e.g., There are {issueCount} open issues."
+                            value={defaultConfig.reportBody || ''}
+                            onChange={(e) => handleDefaultConfigUpdate({ ...defaultConfig, reportBody: e.target.value })}
+                            disabled={isSavingConfig}
+                            className="min-h-[100px]"
+                        />
+                    </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid gap-2">
+                            <Label htmlFor="default-channel">Default Channel</Label>
+                            <Input
+                                id="default-channel"
+                                placeholder="e.g., telegram"
+                                value={defaultConfig.channel || ''}
+                                onChange={(e) => handleDefaultConfigUpdate({ ...defaultConfig, channel: e.target.value })}
+                                disabled={isSavingConfig}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="default-notify_type">Default Notification Type</Label>
+                            <Select 
+                                value={defaultConfig.notify_type || 'info'} 
+                                onValueChange={(value) => handleDefaultConfigUpdate({ ...defaultConfig, notify_type: value as ReportConfiguration['notify_type'] })}
+                                disabled={isSavingConfig}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="info">Info</SelectItem>
+                                    <SelectItem value="success">Success</SelectItem>
+                                    <SelectItem value="warning">Warning</SelectItem>
+                                    <SelectItem value="error">Error</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="default-attach">Default Attachment URL (Optional)</Label>
+                            <Input
+                                id="default-attach"
+                                placeholder="https://example.com/image.png"
+                                value={defaultConfig.attach || ''}
+                                onChange={(e) => handleDefaultConfigUpdate({ ...defaultConfig, attach: e.target.value })}
+                                disabled={isSavingConfig}
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2 pt-6">
+                            <Switch
+                                id="default-silent"
+                                checked={defaultConfig.silent || false}
+                                onCheckedChange={(checked) => handleDefaultConfigUpdate({ ...defaultConfig, silent: checked })}
+                                disabled={isSavingConfig}
+                            />
+                            <Label htmlFor="default-silent">Send Silently by Default</Label>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </CardContent>
+      </Card>
+      
       <Card>
         <CardHeader>
-          <CardTitle>Automated Reports</CardTitle>
+          <CardTitle>Team-Specific Reports</CardTitle>
           <CardDescription>
-            Configure and manually trigger automated reports.
+            Configure and manually trigger automated reports for specific teams. These settings override the defaults.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -379,13 +508,13 @@ export default function SettingsPage() {
                     <Skeleton className="h-12 w-full" />
                 </div>
              ) : (
-                reportConfigs.length > 0 ? (
-                    reportConfigs.map(config => (
-                    <ReportConfigRow key={config.id} config={config} onUpdate={handleConfigUpdate} isSaving={isSavingConfig} />
+                teamConfigs.length > 0 ? (
+                    teamConfigs.map(config => (
+                        <ReportConfigRow key={config.id} config={config} onUpdate={handleTeamConfigUpdate} isSaving={isSavingConfig} />
                     ))
                 ) : (
                     <p className="text-sm text-muted-foreground pt-2">
-                        No report configurations found. A configuration will be created automatically when you save settings for a team.
+                        No team-specific configurations found. New configurations are created automatically when an issue is assigned to a team for the first time.
                     </p>
                 )
              )}
@@ -393,7 +522,7 @@ export default function SettingsPage() {
         </CardContent>
         <CardFooter className="border-t px-6 py-4 flex justify-between items-center">
           <Button onClick={handleSaveConfig} disabled={isSavingConfig}>
-            {isSavingConfig ? 'Saving...' : 'Save Report Schedule'}
+            {isSavingConfig ? 'Saving...' : 'Save All Settings'}
           </Button>
           <Button onClick={handleSendReport} disabled={isSendingReport} variant="secondary">
             {isSendingReport ? 'Sending Report...' : 'Send Open Issues Report Now'}
@@ -403,3 +532,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

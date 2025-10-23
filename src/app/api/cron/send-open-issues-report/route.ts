@@ -5,6 +5,8 @@ import { sendNotificationApi } from '@/lib/notifications';
 import { Issue, Branch, ReportConfiguration } from '@/lib/types';
 import { format } from 'date-fns-tz';
 
+const DEFAULT_CONFIG_ID = "default";
+
 function formatDefaultIssueList(issues: Issue[], branchesById: Record<string, Branch>): string {
     let issueListStr = "";
     issues.forEach(issue => {
@@ -104,6 +106,18 @@ export async function GET(request: Request) {
     }, {} as Record<string, Issue[]>);
     
     const configMap = new Map(reportConfigs.map(c => [c.id, c]));
+    const defaultConfig: ReportConfiguration = configMap.get(DEFAULT_CONFIG_ID) || {
+        id: DEFAULT_CONFIG_ID,
+        time: '09:00',
+        enabled: true,
+        channel: 'telegram',
+        notify_type: 'info',
+        silent: false,
+        attach: '',
+        reportTitle: '',
+        reportBody: '',
+    };
+
 
     // --- Manual Trigger Logic ---
     if (manualTrigger) {
@@ -116,20 +130,11 @@ export async function GET(request: Request) {
 
         for (const team of responsiblePartiesWithOpenIssues) {
             const issuesForTeam = issuesByResponsibility[team];
-            const defaultConfig: ReportConfiguration = { 
-                id: team, 
-                time: '09:00', 
-                enabled: true,
-                channel: 'telegram',
-                notify_type: 'info',
-                silent: false,
-                attach: '',
-                reportTitle: '',
-                reportBody: ''
-            };
-            const teamConfig = { ...defaultConfig, ...(configMap.get(team) || {}) };
-
-            await sendConfiguredReport(teamConfig, issuesForTeam, branchesById);
+            const teamSpecificConfig = configMap.get(team) || {};
+            // Merge defaults with team-specific settings
+            const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
+            
+            await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
             reportsSentCount++;
         }
         
@@ -145,14 +150,17 @@ export async function GET(request: Request) {
     const nowUTC = new Date();
     const currentTimeUTC = format(nowUTC, 'HH:mm', { timeZone: 'UTC' });
     let reportsSentCount = 0;
+    
+    const teamConfigs = reportConfigs.filter(c => c.id !== DEFAULT_CONFIG_ID);
 
-    for (const config of reportConfigs) {
-      if (config.enabled && config.time === currentTimeUTC) {
-        const responsibility = config.id;
+    for (const teamConfig of teamConfigs) {
+      if (teamConfig.enabled && teamConfig.time === currentTimeUTC) {
+        const responsibility = teamConfig.id;
         const issuesForTeam = issuesByResponsibility[responsibility];
 
         if (issuesForTeam && issuesForTeam.length > 0) {
-          await sendConfiguredReport(config, issuesForTeam, branchesById);
+          const finalConfig = { ...defaultConfig, ...teamConfig };
+          await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
           reportsSentCount++;
         }
       }
@@ -169,3 +177,5 @@ export async function GET(request: Request) {
     return new NextResponse(JSON.stringify({ message: `Failed to process report: ${errorMessage}` }), { status: 500 });
   }
 }
+
+    
