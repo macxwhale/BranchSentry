@@ -174,31 +174,24 @@ export default function SettingsPage() {
   const [loadingConfigs, setLoadingConfigs] = React.useState(true);
   const [isSavingConfig, setIsSavingConfig] = React.useState(false);
 
-  const responsibleParties = ['CRDB', 'Zaoma', 'Wavetec'];
-
   React.useEffect(() => {
     async function fetchConfigs() {
       setLoadingConfigs(true);
       try {
         const configsFromDb = await getReportConfigurations();
-        const configsMap = new Map(configsFromDb.map(c => [c.id, c]));
-        
-        const initialConfigs = responsibleParties.map(id => {
-          const existingConfig = configsMap.get(id);
-          return existingConfig || { 
-            id, 
-            time: '09:00', 
-            enabled: true, 
-            channel: 'telegram', 
-            notify_type: 'info', 
-            silent: false, 
-            attach: '',
-            reportTitle: '',
-            reportBody: ''
-          };
-        });
-
-        setReportConfigs(initialConfigs);
+        // Ensure all configs have default values for the UI to prevent uncontrolled inputs
+        const completeConfigs = configsFromDb.map(config => ({
+            id: config.id,
+            time: config.time || '09:00',
+            enabled: config.enabled ?? true,
+            reportTitle: config.reportTitle || '',
+            reportBody: config.reportBody || '',
+            channel: config.channel || 'telegram',
+            notify_type: config.notify_type || 'info',
+            silent: config.silent ?? false,
+            attach: config.attach || '',
+        }));
+        setReportConfigs(completeConfigs.sort((a,b) => a.id.localeCompare(b.id)));
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Could not fetch report configurations." });
       } finally {
@@ -386,9 +379,15 @@ export default function SettingsPage() {
                     <Skeleton className="h-12 w-full" />
                 </div>
              ) : (
-                reportConfigs.map(config => (
-                  <ReportConfigRow key={config.id} config={config} onUpdate={handleConfigUpdate} isSaving={isSavingConfig} />
-                ))
+                reportConfigs.length > 0 ? (
+                    reportConfigs.map(config => (
+                    <ReportConfigRow key={config.id} config={config} onUpdate={handleConfigUpdate} isSaving={isSavingConfig} />
+                    ))
+                ) : (
+                    <p className="text-sm text-muted-foreground pt-2">
+                        No report configurations found. A configuration will be created automatically when you save settings for a team.
+                    </p>
+                )
              )}
           </div>
         </CardContent>

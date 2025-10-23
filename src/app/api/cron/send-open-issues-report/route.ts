@@ -108,35 +108,33 @@ export async function GET(request: Request) {
     // --- Manual Trigger Logic ---
     if (manualTrigger) {
         let reportsSentCount = 0;
-        const responsibleParties = ['CRDB', 'Zaoma', 'Wavetec']; // Or get from a central place
+        const responsiblePartiesWithOpenIssues = Object.keys(issuesByResponsibility);
 
-        for (const team of responsibleParties) {
-            const issuesForTeam = issuesByResponsibility[team];
-            if (issuesForTeam && issuesForTeam.length > 0) {
-                const defaultConfig: ReportConfiguration = { 
-                    id: team, 
-                    time: '09:00', 
-                    enabled: true,
-                    channel: 'telegram',
-                    notify_type: 'info',
-                    silent: false,
-                    attach: '',
-                    reportTitle: '',
-                    reportBody: ''
-                };
-                const savedConfig = configMap.get(team) || {};
-                const teamConfig = { ...defaultConfig, ...savedConfig };
-
-                await sendConfiguredReport(teamConfig, issuesForTeam, branchesById);
-                reportsSentCount++;
-            }
-        }
-        
-        if (reportsSentCount > 0) {
-            return NextResponse.json({ message: `Manually triggered ${reportsSentCount} report(s) successfully.` });
-        } else {
+        if (responsiblePartiesWithOpenIssues.length === 0) {
             return NextResponse.json({ message: 'No teams had open issues to report.' });
         }
+
+        for (const team of responsiblePartiesWithOpenIssues) {
+            const issuesForTeam = issuesByResponsibility[team];
+            const defaultConfig: ReportConfiguration = { 
+                id: team, 
+                time: '09:00', 
+                enabled: true,
+                channel: 'telegram',
+                notify_type: 'info',
+                silent: false,
+                attach: '',
+                reportTitle: '',
+                reportBody: ''
+            };
+            const savedConfig = configMap.get(team) || {};
+            const teamConfig = { ...defaultConfig, ...savedConfig };
+
+            await sendConfiguredReport(teamConfig, issuesForTeam, branchesById);
+            reportsSentCount++;
+        }
+        
+        return NextResponse.json({ message: `Manually triggered ${reportsSentCount} report(s) successfully.` });
     }
 
     // --- Scheduled Cron Job Logic ---
