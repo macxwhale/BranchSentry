@@ -109,6 +109,55 @@ function ReportConfigRow({ config, onUpdate, isSaving }: { config: ReportConfigu
                                 className="min-h-[100px]"
                             />
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid gap-2">
+                                <Label htmlFor={`channel-${config.id}`}>Channel</Label>
+                                <Input
+                                    id={`channel-${config.id}`}
+                                    placeholder="e.g., telegram"
+                                    value={config.channel || 'telegram'}
+                                    onChange={(e) => onUpdate({ ...config, channel: e.target.value })}
+                                    disabled={isSaving}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor={`notify_type-${config.id}`}>Notification Type</Label>
+                                <Select 
+                                  value={config.notify_type || 'info'} 
+                                  onValueChange={(value) => onUpdate({ ...config, notify_type: value as ReportConfiguration['notify_type'] })}
+                                  disabled={isSaving}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="info">Info</SelectItem>
+                                        <SelectItem value="success">Success</SelectItem>
+                                        <SelectItem value="warning">Warning</SelectItem>
+                                        <SelectItem value="error">Error</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor={`attach-${config.id}`}>Attachment URL (Optional)</Label>
+                                <Input
+                                    id={`attach-${config.id}`}
+                                    placeholder="https://example.com/image.png"
+                                    value={config.attach || ''}
+                                    onChange={(e) => onUpdate({ ...config, attach: e.target.value })}
+                                    disabled={isSaving}
+                                />
+                            </div>
+                            <div className="flex items-center space-x-2 pt-6">
+                                <Switch
+                                    id={`silent-${config.id}`}
+                                    checked={config.silent || false}
+                                    onCheckedChange={(checked) => onUpdate({ ...config, silent: checked })}
+                                    disabled={isSaving}
+                                />
+                                <Label htmlFor={`silent-${config.id}`}>Send Silently</Label>
+                            </div>
+                        </div>
                     </div>
                 </AccordionContent>
             </AccordionItem>
@@ -136,7 +185,17 @@ export default function SettingsPage() {
         
         const initialConfigs = responsibleParties.map(id => {
           const existingConfig = configsMap.get(id);
-          return existingConfig || { id, time: '09:00', enabled: true };
+          return existingConfig || { 
+            id, 
+            time: '09:00', 
+            enabled: true, 
+            channel: 'telegram', 
+            notify_type: 'info', 
+            silent: false, 
+            attach: '',
+            reportTitle: '',
+            reportBody: ''
+          };
         });
 
         setReportConfigs(initialConfigs);

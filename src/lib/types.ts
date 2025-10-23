@@ -23,4 +23,8 @@ export type ReportConfiguration = {
   enabled: boolean;
   reportTitle?: string;
   reportBody?: string;
+  channel?: string;
+  attach?: string;
+  notify_type?: 'success' | 'info' | 'warning' | 'error';
+  silent?: boolean;
 };

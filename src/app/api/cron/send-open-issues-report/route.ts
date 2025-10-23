@@ -53,6 +53,27 @@ function formatReportBody(
     return { title, body };
 }
 
+
+async function sendConfiguredReport(config: ReportConfiguration, issues: Issue[], branchesById: Record<string, Branch>) {
+    const { title, body } = formatReportBody(config, issues, branchesById);
+
+    const notificationPayload: Parameters<typeof sendNotificationApi>[0] = {
+        channel: config.channel || 'telegram',
+        title,
+        body,
+        format: 'markdown',
+        notify_type: config.notify_type || 'info',
+        silent: config.silent ?? false,
+    };
+
+    if (config.attach) {
+        notificationPayload.attach = [config.attach];
+    }
+
+    await sendNotificationApi(notificationPayload);
+}
+
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const manualTrigger = searchParams.get('manual') === 'true';
@@ -87,26 +108,13 @@ export async function GET(request: Request) {
     // --- Manual Trigger Logic ---
     if (manualTrigger) {
         let reportsSentCount = 0;
-        const teamsWithIssues = Object.keys(issuesByResponsibility);
+        const responsibleParties = ['CRDB', 'Zaoma', 'Wavetec']; // Or get from a central place
 
-        if (teamsWithIssues.length === 0) {
-            return NextResponse.json({ message: 'Manual trigger: No open issues to report for any team.' });
-        }
-
-        for (const team of teamsWithIssues) {
+        for (const team of responsibleParties) {
             const issuesForTeam = issuesByResponsibility[team];
-            const teamConfig = configMap.get(team) || { id: team, time: '09:00', enabled: true }; // Default config
-            
             if (issuesForTeam && issuesForTeam.length > 0) {
-                const { title, body } = formatReportBody(teamConfig, issuesForTeam, branchesById);
-                await sendNotificationApi({
-                    channel: 'telegram',
-                    title,
-                    body,
-                    format: 'markdown',
-                    notify_type: 'info',
-                    silent: false,
-                });
+                const teamConfig = configMap.get(team) || { id: team, time: '09:00', enabled: true };
+                await sendConfiguredReport(teamConfig, issuesForTeam, branchesById);
                 reportsSentCount++;
             }
         }
@@ -134,15 +142,7 @@ export async function GET(request: Request) {
         const issuesForTeam = issuesByResponsibility[responsibility];
 
         if (issuesForTeam && issuesForTeam.length > 0) {
-          const { title, body } = formatReportBody(config, issuesForTeam, branchesById);
-          await sendNotificationApi({
-            channel: 'telegram',
-            title,
-            body,
-            format: 'markdown',
-            notify_type: 'info',
-            silent: false,
-          });
+          await sendConfiguredReport(config, issuesForTeam, branchesById);
           reportsSentCount++;
         }
       }
