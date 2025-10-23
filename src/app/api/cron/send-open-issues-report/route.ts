@@ -20,11 +20,8 @@ export async function GET(request: Request) {
       (issue) => issue.status === 'Open' || issue.status === 'In Progress'
     );
 
-    if (openIssues.length === 0) {
+    if (openIssues.length === 0 && !manualTrigger) {
       console.log('No open issues to report.');
-      if (manualTrigger) {
-        return NextResponse.json({ message: 'No open issues to report.' });
-      }
       return NextResponse.json({ message: 'Cron job ran. No open issues.' });
     }
 
@@ -49,7 +46,9 @@ export async function GET(request: Request) {
     let reportsSentCount = 0;
 
     for (const config of reportConfigs) {
-      const shouldSend = (manualTrigger && config.id === 'CRDB') || // CRDB is a sample for manual trigger
+      // For manual trigger, we only care about sending to a sample team (CRDB for now).
+      // For cron job, we check if it's enabled and if the time matches.
+      const shouldSend = (manualTrigger && config.id === 'CRDB') ||
                           (!manualTrigger && config.enabled && config.time === currentTimeUTC);
 
       if (shouldSend) {

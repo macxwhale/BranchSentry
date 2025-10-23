@@ -124,14 +124,15 @@ export default function SettingsPage() {
   const handleSendReport = async () => {
     setIsSendingReport(true);
     try {
-        const response = await fetch('/api/cron/send-open-issues-report');
+        // Add manual=true query parameter to the request
+        const response = await fetch('/api/cron/send-open-issues-report?manual=true');
         const data = await response.json();
         if (!response.ok) {
             throw new Error(data.message || 'Failed to send report.');
         }
         toast({
-            title: "Report Sent",
-            description: "The open issues report has been successfully sent.",
+            title: "Manual Report Triggered",
+            description: data.message, // Display the message from the API response
         });
     } catch (error: any) {
         toast({
