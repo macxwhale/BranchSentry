@@ -11,6 +11,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,8 @@ export default function SettingsPage() {
   const [formState, formAction] = useActionState(sendNotification, initialState);
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
+  const [isSendingReport, setIsSendingReport] = React.useState(false);
+
 
   React.useEffect(() => {
     if (formState.message) {
@@ -61,6 +64,30 @@ export default function SettingsPage() {
       }
     }
   }, [formState, toast]);
+
+  const handleSendReport = async () => {
+    setIsSendingReport(true);
+    try {
+        const response = await fetch('/api/cron/send-open-issues-report');
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to send report.');
+        }
+        toast({
+            title: "Report Sent",
+            description: "The open issues report has been successfully sent.",
+        });
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Error Sending Report",
+            description: error.message || "An unknown error occurred.",
+        });
+    } finally {
+        setIsSendingReport(false);
+    }
+  };
+
 
   return (
     <div className="grid gap-6">
@@ -156,6 +183,19 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle>Automated Reports</CardTitle>
+                <CardDescription>
+                Manually trigger automated reports. The "Open Issues Report" is also sent automatically every day at 9 AM UTC.
+                </CardDescription>
+            </CardHeader>
+            <CardFooter className="border-t px-6 py-4">
+                 <Button onClick={handleSendReport} disabled={isSendingReport}>
+                    {isSendingReport ? 'Sending Report...' : 'Send Open Issues Report'}
+                </Button>
+            </CardFooter>
+        </Card>
     </div>
   );
 }
