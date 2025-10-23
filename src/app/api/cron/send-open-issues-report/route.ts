@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import { getAllIssues, getBranches } from '@/lib/firestore';
 import { sendNotificationApi } from '@/lib/notifications';
@@ -58,7 +59,7 @@ export async function GET() {
     });
 
     return NextResponse.json({ message: 'Open issues report sent successfully.' });
-  } catch (error)_ {
+  } catch (error) {
     console.error('Failed to send open issues report:', error);
     let errorMessage = "An unknown error occurred.";
     if (error instanceof Error) {
