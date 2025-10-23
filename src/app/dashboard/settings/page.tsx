@@ -124,7 +124,6 @@ export default function SettingsPage() {
   const handleSendReport = async () => {
     setIsSendingReport(true);
     try {
-        // Add manual=true query parameter to the request
         const response = await fetch('/api/cron/send-open-issues-report?manual=true');
         const data = await response.json();
         if (!response.ok) {
@@ -132,7 +131,7 @@ export default function SettingsPage() {
         }
         toast({
             title: "Manual Report Triggered",
-            description: data.message, // Display the message from the API response
+            description: data.message,
         });
     } catch (error: any) {
         toast({
@@ -146,7 +145,9 @@ export default function SettingsPage() {
   };
 
   const handleConfigUpdate = (updatedConfig: ReportConfiguration) => {
-    setReportConfigs(reportConfigs.map(c => c.id === updatedConfig.id ? updatedConfig : c));
+    setReportConfigs(prevConfigs => 
+        prevConfigs.map(c => c.id === updatedConfig.id ? updatedConfig : c)
+    );
   };
   
   const handleSaveConfig = async () => {
