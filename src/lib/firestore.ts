@@ -1,6 +1,6 @@
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, FieldValue, deleteField } from 'firebase/firestore';
-import { Branch, Issue } from './types';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, FieldValue, deleteField, setDoc } from 'firebase/firestore';
+import { Branch, Issue, ReportConfiguration } from './types';
 
 // Branches
 
@@ -78,4 +78,16 @@ export const updateIssue = async (id: string, data: Partial<Omit<Issue, 'id'>>):
 
 export const deleteIssue = async (id: string): Promise<void> => {
     await deleteDoc(doc(db, 'issues', id));
+};
+
+// Report Configurations
+export const getReportConfigurations = async (): Promise<ReportConfiguration[]> => {
+    const configCol = collection(db, 'report_configurations');
+    const configSnapshot = await getDocs(configCol);
+    return configSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReportConfiguration));
+};
+
+export const updateReportConfiguration = async (config: ReportConfiguration): Promise<void> => {
+    const configRef = doc(db, 'report_configurations', config.id);
+    await setDoc(configRef, { time: config.time, enabled: config.enabled }, { merge: true });
 };

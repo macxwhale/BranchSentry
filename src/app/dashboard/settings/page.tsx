@@ -26,6 +26,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { sendNotification, type FormState } from "@/lib/notifications";
 import { Switch } from "@/components/ui/switch";
+import { ReportConfiguration } from "@/lib/types";
+import { getReportConfigurations, updateReportConfiguration } from "@/lib/firestore";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const initialState: FormState = {
   message: "",
@@ -40,11 +43,64 @@ function SubmitButton() {
   );
 }
 
+function ReportConfigRow({ config, onUpdate, isSaving }: { config: ReportConfiguration, onUpdate: (config: ReportConfiguration) => void, isSaving: boolean }) {
+    return (
+        <div className="flex items-center justify-between space-x-4">
+            <div className="font-medium">{config.id}</div>
+            <div className="flex items-center space-x-2">
+                <Label htmlFor={`time-${config.id}`} className="sr-only">Time</Label>
+                <Input
+                    id={`time-${config.id}`}
+                    type="time"
+                    value={config.time}
+                    onChange={(e) => onUpdate({ ...config, time: e.target.value })}
+                    className="w-[120px]"
+                    disabled={isSaving}
+                />
+                <Label htmlFor={`enabled-${config.id}`} className="sr-only">Enabled</Label>
+                <Switch
+                    id={`enabled-${config.id}`}
+                    checked={config.enabled}
+                    onCheckedChange={(checked) => onUpdate({ ...config, enabled: checked })}
+                    disabled={isSaving}
+                />
+            </div>
+        </div>
+    );
+}
+
 export default function SettingsPage() {
   const [formState, formAction] = useActionState(sendNotification, initialState);
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [isSendingReport, setIsSendingReport] = React.useState(false);
+  const [reportConfigs, setReportConfigs] = React.useState<ReportConfiguration[]>([]);
+  const [loadingConfigs, setLoadingConfigs] = React.useState(true);
+  const [isSavingConfig, setIsSavingConfig] = React.useState(false);
+
+  const responsibleParties = ['CRDB', 'Zaoma', 'Wavetec'];
+
+  React.useEffect(() => {
+    async function fetchConfigs() {
+      setLoadingConfigs(true);
+      try {
+        const configsFromDb = await getReportConfigurations();
+        const configsMap = new Map(configsFromDb.map(c => [c.id, c]));
+        
+        const initialConfigs = responsibleParties.map(id => {
+          const existingConfig = configsMap.get(id);
+          return existingConfig || { id, time: '09:00', enabled: true };
+        });
+
+        setReportConfigs(initialConfigs);
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Could not fetch report configurations." });
+      } finally {
+        setLoadingConfigs(false);
+      }
+    }
+    fetchConfigs();
+  }, [toast]);
 
 
   React.useEffect(() => {
@@ -88,6 +144,28 @@ export default function SettingsPage() {
     }
   };
 
+  const handleConfigUpdate = (updatedConfig: ReportConfiguration) => {
+    setReportConfigs(reportConfigs.map(c => c.id === updatedConfig.id ? updatedConfig : c));
+  };
+  
+  const handleSaveConfig = async () => {
+    setIsSavingConfig(true);
+    try {
+      await Promise.all(reportConfigs.map(config => updateReportConfiguration(config)));
+      toast({
+        title: "Configuration Saved",
+        description: "Your report settings have been updated.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error Saving",
+        description: "Could not save report configurations.",
+      });
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
 
   return (
     <div className="grid gap-6">
@@ -183,19 +261,38 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
-        <Card>
-            <CardHeader>
-                <CardTitle>Automated Reports</CardTitle>
-                <CardDescription>
-                Manually trigger automated reports. The "Open Issues Report" is also sent automatically every day at 9 AM UTC.
-                </CardDescription>
-            </CardHeader>
-            <CardFooter className="border-t px-6 py-4">
-                 <Button onClick={handleSendReport} disabled={isSendingReport}>
-                    {isSendingReport ? 'Sending Report...' : 'Send Open Issues Report'}
-                </Button>
-            </CardFooter>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Automated Reports</CardTitle>
+          <CardDescription>
+            Configure and manually trigger automated reports.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+             <h3 className="text-lg font-medium">Daily Report Schedule (UTC)</h3>
+             {loadingConfigs ? (
+                <div className="space-y-4">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                </div>
+             ) : (
+                reportConfigs.map(config => (
+                  <ReportConfigRow key={config.id} config={config} onUpdate={handleConfigUpdate} isSaving={isSavingConfig} />
+                ))
+             )}
+          </div>
+        </CardContent>
+        <CardFooter className="border-t px-6 py-4 flex justify-between items-center">
+          <Button onClick={handleSaveConfig} disabled={isSavingConfig}>
+            {isSavingConfig ? 'Saving...' : 'Save Report Schedule'}
+          </Button>
+          <Button onClick={handleSendReport} disabled={isSendingReport} variant="secondary">
+            {isSendingReport ? 'Sending Report...' : 'Send Open Issues Report Now'}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

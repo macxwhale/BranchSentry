@@ -1,15 +1,19 @@
 
 import { NextResponse } from 'next/server';
-import { getAllIssues, getBranches } from '@/lib/firestore';
+import { getAllIssues, getBranches, getReportConfigurations } from '@/lib/firestore';
 import { sendNotificationApi } from '@/lib/notifications';
-import { Issue, Branch } from '@/lib/types';
-import { format } from 'date-fns';
+import { Issue, Branch, ReportConfiguration } from '@/lib/types';
+import { format, formatInTimeZone } from 'date-fns-tz';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const manualTrigger = searchParams.get('manual') === 'true';
+
   try {
-    const [allIssues, allBranches] = await Promise.all([
-        getAllIssues(),
-        getBranches()
+    const [allIssues, allBranches, reportConfigs] = await Promise.all([
+      getAllIssues(),
+      getBranches(),
+      getReportConfigurations(),
     ]);
 
     const openIssues = allIssues.filter(
@@ -18,12 +22,15 @@ export async function GET() {
 
     if (openIssues.length === 0) {
       console.log('No open issues to report.');
-      return NextResponse.json({ message: 'No open issues to report.' });
+      if (manualTrigger) {
+        return NextResponse.json({ message: 'No open issues to report.' });
+      }
+      return NextResponse.json({ message: 'Cron job ran. No open issues.' });
     }
 
     const branchesById = allBranches.reduce((acc, branch) => {
-        acc[branch.id] = branch;
-        return acc;
+      acc[branch.id] = branch;
+      return acc;
     }, {} as Record<string, Branch>);
 
     const issuesByResponsibility = openIssues.reduce((acc, issue) => {
@@ -35,38 +42,61 @@ export async function GET() {
       return acc;
     }, {} as Record<string, Issue[]>);
 
-    let markdownBody = `**Daily Open Issues Report - ${format(new Date(), 'dd MMM yyyy')}**\n\n`;
-    markdownBody += `There are currently **${openIssues.length}** open or in-progress issues.\n\n---\n\n`;
+    // Get current time in UTC
+    const nowUTC = new Date();
+    const currentTimeUTC = format(nowUTC, 'HH:mm', { timeZone: 'UTC' });
 
-    for (const responsibility in issuesByResponsibility) {
-      markdownBody += `### 👤 Assigned to: ${responsibility}\n\n`;
-      const issues = issuesByResponsibility[responsibility];
-      
-      issues.forEach(issue => {
-        const branchName = branchesById[issue.branchId]?.name || 'Unknown Branch';
-        markdownBody += `🏢 **Branch: ${branchName}**\n`;
-        markdownBody += `📊 Status: ${issue.status}\n`;
-        markdownBody += `🐛 Issue: ${issue.description}\n`;
-        markdownBody += `_(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n\n`;
-      });
+    let reportsSentCount = 0;
+
+    for (const config of reportConfigs) {
+      const shouldSend = (manualTrigger && config.id === 'CRDB') || // CRDB is a sample for manual trigger
+                          (!manualTrigger && config.enabled && config.time === currentTimeUTC);
+
+      if (shouldSend) {
+        const responsibility = config.id;
+        const issuesForTeam = issuesByResponsibility[responsibility];
+
+        if (issuesForTeam && issuesForTeam.length > 0) {
+          let markdownBody = `**🚨 Daily Open Issues Report for ${responsibility} - ${format(new Date(), 'dd MMM yyyy')}**\n\n`;
+          markdownBody += `There are currently **${issuesForTeam.length}** open or in-progress issues assigned to you.\n\n---\n\n`;
+
+          issuesForTeam.forEach(issue => {
+            const branchName = branchesById[issue.branchId]?.name || 'Unknown Branch';
+            markdownBody += `**🏢 Branch: ${branchName}**\n`;
+            markdownBody += `📊 Status: ${issue.status}\n`;
+            markdownBody += `🐛 Issue: ${issue.description}\n`;
+            markdownBody += `_(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n\n`;
+          });
+
+          await sendNotificationApi({
+            channel: 'telegram', // This could be made configurable in the future
+            title: `🚨 ${issuesForTeam.length} Open Issues Report for ${responsibility}`,
+            body: markdownBody,
+            format: 'markdown',
+            notify_type: 'info',
+            silent: false,
+          });
+          reportsSentCount++;
+        }
+      }
+    }
+    
+    if (manualTrigger) {
+         if (reportsSentCount > 0) {
+            return NextResponse.json({ message: `Manually triggered report sent successfully to CRDB.` });
+         } else {
+             return NextResponse.json({ message: `CRDB has no open issues to report.` });
+         }
     }
 
-    await sendNotificationApi({
-        channel: 'telegram',
-        title: `🚨 ${openIssues.length} Open Issues Report`,
-        body: markdownBody,
-        format: 'markdown',
-        notify_type: 'info',
-        silent: false,
-    });
+    return NextResponse.json({ message: `Cron job finished. Sent ${reportsSentCount} reports.` });
 
-    return NextResponse.json({ message: 'Open issues report sent successfully.' });
   } catch (error) {
-    console.error('Failed to send open issues report:', error);
+    console.error('Failed to process and send open issues report:', error);
     let errorMessage = "An unknown error occurred.";
     if (error instanceof Error) {
         errorMessage = error.message;
     }
-    return new NextResponse(JSON.stringify({ message: `Failed to send report: ${errorMessage}` }), { status: 500 });
+    return new NextResponse(JSON.stringify({ message: `Failed to process report: ${errorMessage}` }), { status: 500 });
   }
 }
