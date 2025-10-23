@@ -50,22 +50,33 @@ export async function GET(request: Request) {
     }, {} as Record<string, Issue[]>);
 
     if (manualTrigger) {
-        const teamToNotify = 'CRDB'; // For now, manual trigger is hardcoded for CRDB
-        const issuesForTeam = issuesByResponsibility[teamToNotify];
+        let reportsSentCount = 0;
+        const teamsWithIssues = Object.keys(issuesByResponsibility);
 
-        if (issuesForTeam && issuesForTeam.length > 0) {
-            const markdownBody = formatReportBody(teamToNotify, issuesForTeam, branchesById);
-            await sendNotificationApi({
-                channel: 'telegram',
-                title: `🚨 ${issuesForTeam.length} Open Issues Report for ${teamToNotify}`,
-                body: markdownBody,
-                format: 'markdown',
-                notify_type: 'info',
-                silent: false,
-            });
-            return NextResponse.json({ message: `Manually triggered report sent successfully to ${teamToNotify}.` });
+        if (teamsWithIssues.length === 0) {
+            return NextResponse.json({ message: 'Manual trigger: No open issues to report for any team.' });
+        }
+
+        for (const team of teamsWithIssues) {
+            const issuesForTeam = issuesByResponsibility[team];
+            if (issuesForTeam && issuesForTeam.length > 0) {
+                const markdownBody = formatReportBody(team, issuesForTeam, branchesById);
+                await sendNotificationApi({
+                    channel: 'telegram',
+                    title: `🚨 ${issuesForTeam.length} Open Issues Report for ${team}`,
+                    body: markdownBody,
+                    format: 'markdown',
+                    notify_type: 'info',
+                    silent: false,
+                });
+                reportsSentCount++;
+            }
+        }
+        
+        if (reportsSentCount > 0) {
+            return NextResponse.json({ message: `Manually triggered ${reportsSentCount} report(s) successfully.` });
         } else {
-            return NextResponse.json({ message: `${teamToNotify} has no open issues to report.` });
+            return NextResponse.json({ message: 'No teams had open issues to report.' });
         }
     }
 
