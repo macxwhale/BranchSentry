@@ -31,6 +31,7 @@ import {
   GitBranch,
   MessageCircle,
   PanelLeft,
+  Settings,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/contexts/auth-context"
@@ -74,6 +75,13 @@ function DashboardLayoutContent({
             <Building2 className="h-4 w-4" />
             Branches
           </Link>
+           <Link
+            href="/dashboard/settings"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary ${pathname === '/dashboard/settings' ? 'bg-muted text-primary' : ''}`}
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </Link>
         </nav>
       </aside>
       <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-60">
@@ -101,6 +109,13 @@ function DashboardLayoutContent({
                   <Building2 className="h-5 w-5" />
                   Branches
                 </Link>
+                 <Link
+                  href="/dashboard/settings"
+                  className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <Settings className="h-5 w-5" />
+                  Settings
+                </Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -122,6 +137,14 @@ function DashboardLayoutContent({
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
                     <BreadcrumbPage>Details</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </>
+              )}
+               {pathname.includes('/settings') && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>Settings</BreadcrumbPage>
                   </BreadcrumbItem>
                 </>
               )}
@@ -155,7 +178,7 @@ function DashboardLayoutContent({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push('/dashboard/settings')}>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
