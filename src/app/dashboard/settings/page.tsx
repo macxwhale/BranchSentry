@@ -29,6 +29,10 @@ import { Switch } from "@/components/ui/switch";
 import { ReportConfiguration } from "@/lib/types";
 import { getReportConfigurations, updateReportConfiguration } from "@/lib/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const initialState: FormState = {
   message: "",
@@ -45,27 +49,70 @@ function SubmitButton() {
 
 function ReportConfigRow({ config, onUpdate, isSaving }: { config: ReportConfiguration, onUpdate: (config: ReportConfiguration) => void, isSaving: boolean }) {
     return (
-        <div className="flex items-center justify-between space-x-4">
-            <div className="font-medium">{config.id}</div>
-            <div className="flex items-center space-x-2">
-                <Label htmlFor={`time-${config.id}`} className="sr-only">Time</Label>
-                <Input
-                    id={`time-${config.id}`}
-                    type="time"
-                    value={config.time}
-                    onChange={(e) => onUpdate({ ...config, time: e.target.value })}
-                    className="w-[120px]"
-                    disabled={isSaving}
-                />
-                <Label htmlFor={`enabled-${config.id}`} className="sr-only">Enabled</Label>
-                <Switch
-                    id={`enabled-${config.id}`}
-                    checked={config.enabled}
-                    onCheckedChange={(checked) => onUpdate({ ...config, enabled: checked })}
-                    disabled={isSaving}
-                />
-            </div>
-        </div>
+        <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value={`item-${config.id}`}>
+                <div className="flex items-center justify-between space-x-4">
+                    <AccordionTrigger className="flex-1">
+                        <div className="font-medium">{config.id}</div>
+                    </AccordionTrigger>
+                    <div className="flex items-center space-x-2 pr-4">
+                        <Label htmlFor={`time-${config.id}`} className="sr-only">Time</Label>
+                        <Input
+                            id={`time-${config.id}`}
+                            type="time"
+                            value={config.time}
+                            onChange={(e) => onUpdate({ ...config, time: e.target.value })}
+                            className="w-[120px]"
+                            disabled={isSaving}
+                        />
+                        <Label htmlFor={`enabled-${config.id}`} className="sr-only">Enabled</Label>
+                        <Switch
+                            id={`enabled-${config.id}`}
+                            checked={config.enabled}
+                            onCheckedChange={(checked) => onUpdate({ ...config, enabled: checked })}
+                            disabled={isSaving}
+                        />
+                    </div>
+                </div>
+                <AccordionContent>
+                    <div className="grid gap-4 pt-4">
+                        <div className="grid gap-2">
+                             <Label htmlFor={`title-${config.id}`}>Report Title</Label>
+                             <Input
+                                id={`title-${config.id}`}
+                                placeholder="e.g., 🚨 Daily Report for {assignee}"
+                                value={config.reportTitle || ''}
+                                onChange={(e) => onUpdate({ ...config, reportTitle: e.target.value })}
+                                disabled={isSaving}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                             <div className="flex items-center gap-2">
+                                <Label htmlFor={`body-${config.id}`}>Report Body</Label>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="text-sm">Available placeholders:<br/>- `'{'{assignee}'}'`: The team name<br/>- `'{'{issueCount}'}'`: Number of open issues<br/>- `'{'{date}'}'`: Current date<br/>- `'{'{issueList}'}'`: The formatted list of issues</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                            <Textarea
+                                id={`body-${config.id}`}
+                                placeholder="e.g., There are {issueCount} open issues."
+                                value={config.reportBody || ''}
+                                onChange={(e) => onUpdate({ ...config, reportBody: e.target.value })}
+                                disabled={isSaving}
+                                className="min-h-[100px]"
+                            />
+                        </div>
+                    </div>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
     );
 }
 
@@ -271,13 +318,13 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-4">
-             <h3 className="text-lg font-medium">Daily Report Schedule (UTC)</h3>
+          <div className="space-y-2">
+             <h3 className="text-lg font-medium">Report Schedule & Templates (UTC)</h3>
              {loadingConfigs ? (
-                <div className="space-y-4">
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
+                <div className="space-y-4 pt-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
                 </div>
              ) : (
                 reportConfigs.map(config => (

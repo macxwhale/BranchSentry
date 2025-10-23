@@ -90,5 +90,5 @@ export const getReportConfigurations = async (): Promise<ReportConfiguration[]> 
 export const updateReportConfiguration = async (config: ReportConfiguration): Promise<void> => {
     const configRef = doc(db, 'report_configurations', config.id);
     // Use setDoc with merge to create the document if it doesn't exist, or update it if it does.
-    await setDoc(configRef, { time: config.time, enabled: config.enabled }, { merge: true });
+    await setDoc(configRef, config, { merge: true });
 };

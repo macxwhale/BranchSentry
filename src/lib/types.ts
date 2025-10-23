@@ -21,4 +21,6 @@ export type ReportConfiguration = {
   id: string; // Corresponds to responsibility, e.g., 'CRDB'
   time: string; // UTC time in HH:mm format
   enabled: boolean;
+  reportTitle?: string;
+  reportBody?: string;
 };

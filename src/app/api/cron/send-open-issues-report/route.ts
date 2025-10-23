@@ -5,19 +5,52 @@ import { sendNotificationApi } from '@/lib/notifications';
 import { Issue, Branch, ReportConfiguration } from '@/lib/types';
 import { format } from 'date-fns-tz';
 
-function formatReportBody(responsibility: string, issues: Issue[], branchesById: Record<string, Branch>): string {
-    let markdownBody = `**🚨 Daily Open Issues Report for ${responsibility} - ${format(new Date(), 'dd MMM yyyy')}**\n\n`;
-    markdownBody += `There are currently **${issues.length}** open or in-progress issues assigned to you.\n\n---\n\n`;
-
+function formatDefaultIssueList(issues: Issue[], branchesById: Record<string, Branch>): string {
+    let issueListStr = "";
     issues.forEach(issue => {
         const branchName = branchesById[issue.branchId]?.name || 'Unknown Branch';
-        markdownBody += `**🏢 Branch: ${branchName}**\n`;
-        markdownBody += `📊 Status: ${issue.status}\n`;
-        markdownBody += `🐛 Issue: ${issue.description}\n`;
-        markdownBody += `_(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n\n`;
+        issueListStr += `**🏢 Branch: ${branchName}**\n`;
+        issueListStr += `📊 Status: ${issue.status}\n`;
+        issueListStr += `🐛 Issue: ${issue.description}\n`;
+        issueListStr += `_(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n\n`;
     });
+    return issueListStr;
+}
 
-    return markdownBody;
+function formatReportBody(
+    config: ReportConfiguration, 
+    issues: Issue[], 
+    branchesById: Record<string, Branch>
+): { title: string, body: string } {
+    const assignee = config.id;
+    const issueCount = issues.length;
+    const currentDate = format(new Date(), 'dd MMM yyyy');
+
+    const issueList = formatDefaultIssueList(issues, branchesById);
+
+    // Default title and body
+    let title = `🚨 ${issueCount} Open Issues Report for ${assignee}`;
+    let body = `**🚨 Daily Open Issues Report for ${assignee} - ${currentDate}**\n\n`;
+    body += `There are currently **${issueCount}** open or in-progress issues assigned to you.\n\n---\n\n`;
+    body += issueList;
+
+    // Use custom templates if they exist
+    if (config.reportTitle) {
+        title = config.reportTitle
+            .replace(/{assignee}/g, assignee)
+            .replace(/{issueCount}/g, issueCount.toString())
+            .replace(/{date}/g, currentDate);
+    }
+
+    if (config.reportBody) {
+        body = config.reportBody
+            .replace(/{assignee}/g, assignee)
+            .replace(/{issueCount}/g, issueCount.toString())
+            .replace(/{date}/g, currentDate)
+            .replace(/{issueList}/g, issueList);
+    }
+    
+    return { title, body };
 }
 
 export async function GET(request: Request) {
@@ -48,7 +81,10 @@ export async function GET(request: Request) {
       acc[responsibility].push(issue);
       return acc;
     }, {} as Record<string, Issue[]>);
+    
+    const configMap = new Map(reportConfigs.map(c => [c.id, c]));
 
+    // --- Manual Trigger Logic ---
     if (manualTrigger) {
         let reportsSentCount = 0;
         const teamsWithIssues = Object.keys(issuesByResponsibility);
@@ -59,12 +95,14 @@ export async function GET(request: Request) {
 
         for (const team of teamsWithIssues) {
             const issuesForTeam = issuesByResponsibility[team];
+            const teamConfig = configMap.get(team) || { id: team, time: '09:00', enabled: true }; // Default config
+            
             if (issuesForTeam && issuesForTeam.length > 0) {
-                const markdownBody = formatReportBody(team, issuesForTeam, branchesById);
+                const { title, body } = formatReportBody(teamConfig, issuesForTeam, branchesById);
                 await sendNotificationApi({
                     channel: 'telegram',
-                    title: `🚨 ${issuesForTeam.length} Open Issues Report for ${team}`,
-                    body: markdownBody,
+                    title,
+                    body,
                     format: 'markdown',
                     notify_type: 'info',
                     silent: false,
@@ -96,11 +134,11 @@ export async function GET(request: Request) {
         const issuesForTeam = issuesByResponsibility[responsibility];
 
         if (issuesForTeam && issuesForTeam.length > 0) {
-          const markdownBody = formatReportBody(responsibility, issuesForTeam, branchesById);
+          const { title, body } = formatReportBody(config, issuesForTeam, branchesById);
           await sendNotificationApi({
             channel: 'telegram',
-            title: `🚨 ${issuesForTeam.length} Open Issues Report for ${responsibility}`,
-            body: markdownBody,
+            title,
+            body,
             format: 'markdown',
             notify_type: 'info',
             silent: false,
