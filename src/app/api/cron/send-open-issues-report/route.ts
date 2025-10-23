@@ -124,7 +124,9 @@ export async function GET(request: Request) {
                     reportTitle: '',
                     reportBody: ''
                 };
-                const teamConfig = configMap.get(team) || defaultConfig;
+                const savedConfig = configMap.get(team) || {};
+                const teamConfig = { ...defaultConfig, ...savedConfig };
+
                 await sendConfiguredReport(teamConfig, issuesForTeam, branchesById);
                 reportsSentCount++;
             }
