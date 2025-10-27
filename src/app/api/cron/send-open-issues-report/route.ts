@@ -14,6 +14,15 @@ function formatDefaultIssueList(issues: Issue[], branchesById: Record<string, Br
         issueListStr += `**🏢 Branch: ${branchName}**\n`;
         issueListStr += `📊 Status: ${issue.status}\n`;
         issueListStr += `🐛 Issue: ${issue.description}\n`;
+
+        if (issue.ticketNumber) {
+            if (issue.ticketUrl) {
+                issueListStr += `🎟️ Ticket: [${issue.ticketNumber}](${issue.ticketUrl})\n`;
+            } else {
+                issueListStr += `🎟️ Ticket: ${issue.ticketNumber}\n`;
+            }
+        }
+        
         issueListStr += `_(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n\n`;
     });
     return issueListStr;
@@ -106,18 +115,19 @@ export async function GET(request: Request) {
     }, {} as Record<string, Issue[]>);
     
     const configMap = new Map(reportConfigs.map(c => [c.id, c]));
-    const defaultConfig: ReportConfiguration = configMap.get(DEFAULT_CONFIG_ID) || {
+    
+    const defaultConfigFromDb = configMap.get(DEFAULT_CONFIG_ID) || {
         id: DEFAULT_CONFIG_ID,
         time: '09:00',
         enabled: true,
+        reportTitle: '🚨 {issueCount} Open Issues Report for {assignee}',
+        reportBody: '**🚨 Daily Open Issues Report for {assignee} - {date}**\n\nThere are currently **{issueCount}** open or in-progress issues assigned to you.\n\n---\n\n{issueList}',
         channel: 'telegram',
         notify_type: 'info',
         silent: false,
         attach: '',
-        reportTitle: '',
-        reportBody: '',
     };
-
+    
 
     // --- Manual Trigger Logic ---
     if (manualTrigger) {
@@ -132,7 +142,7 @@ export async function GET(request: Request) {
             const issuesForTeam = issuesByResponsibility[team];
             const teamSpecificConfig = configMap.get(team) || {};
             // Merge defaults with team-specific settings
-            const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
+            const finalConfig = { ...defaultConfigFromDb, ...teamSpecificConfig, id: team };
             
             await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
             reportsSentCount++;
@@ -159,7 +169,7 @@ export async function GET(request: Request) {
         const issuesForTeam = issuesByResponsibility[responsibility];
 
         if (issuesForTeam && issuesForTeam.length > 0) {
-          const finalConfig = { ...defaultConfig, ...teamConfig };
+          const finalConfig = { ...defaultConfigFromDb, ...teamConfig };
           await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
           reportsSentCount++;
         }
