@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useParams } from "next/navigation"
 import {
+  Copy,
   MoreHorizontal,
   PlusCircle,
   Search,
@@ -226,6 +227,31 @@ export default function BranchDetailPage() {
         toast({ variant: "destructive", title: "Error", description: "Failed to delete issue." });
     }
   }
+
+  const handleCloneIssue = async (issueToClone: Issue) => {
+    const clonedIssueData: Omit<Issue, 'id'> = {
+        branchId: issueToClone.branchId,
+        description: `(Clone) ${issueToClone.description}`,
+        responsibility: issueToClone.responsibility,
+        status: 'Open',
+        date: new Date().toISOString(),
+        ticketNumber: issueToClone.ticketNumber,
+        ticketUrl: issueToClone.ticketUrl,
+    };
+
+    try {
+        const newIssue = await addIssue(clonedIssueData);
+        setIssues([newIssue, ...issues]);
+        toast({ title: "Success", description: "Issue cloned successfully." });
+    } catch (e) {
+        console.error("Failed to clone issue:", e);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to clone the issue.",
+        });
+    }
+  };
 
 
   if (!branch) {
@@ -454,6 +480,10 @@ export default function BranchDetailPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem onSelect={() => handleOpenDialog(issue)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleCloneIssue(issue)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Clone
+                            </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => handleDeleteIssue(issue.id)} className="text-destructive">Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -468,5 +498,3 @@ export default function BranchDetailPage() {
     </div>
   )
 }
-
-    
