@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import Papa from "papaparse"
 import { format } from "date-fns"
+import { collection, query, orderBy, where } from "firebase/firestore";
 
 
 import { Badge } from "@/components/ui/badge"
@@ -64,11 +65,11 @@ import {
 } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Branch, Issue } from "@/lib/types"
-import { addBranch, deleteBranch, getBranches, getAllIssues, updateBranch } from "@/lib/firestore"
+import { addBranch, deleteBranch, updateBranch } from "@/lib/firestore"
+import { useCollection } from "@/hooks/use-collection"
+import { db } from "@/lib/firebase"
 
 export default function Dashboard() {
-  const [branches, setBranches] = React.useState<Branch[]>([])
-  const [allIssues, setAllIssues] = React.useState<Issue[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
   const [sortOption, setSortOption] = React.useState("name-asc")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -76,59 +77,47 @@ export default function Dashboard() {
   const [branchId, setBranchId] = React.useState("")
   const [branchName, setBranchName] = React.useState("")
   const [branchIp, setBranchIp] = React.useState("")
-  const [loading, setLoading] = React.useState(true)
   const [openIssuesBranchFilter, setOpenIssuesBranchFilter] = React.useState('');
   const [openIssuesDescriptionFilter, setOpenIssuesDescriptionFilter] = React.useState('');
   const [openIssuesAssignedToFilter, setOpenIssuesAssignedToFilter] = React.useState('');
 
+  const { data: branches, loading: branchesLoading } = useCollection<Branch>(
+    React.useMemo(() => collection(db, 'branches'), [])
+  );
+  const { data: allIssues, loading: issuesLoading } = useCollection<Issue>(
+    React.useMemo(() => collection(db, 'issues'), [])
+  );
 
   const { toast } = useToast()
 
-  const fetchBranches = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const branchesFromDb = await getBranches();
-      setBranches(branchesFromDb);
-      const issuesFromDb = await getAllIssues();
-      setAllIssues(issuesFromDb);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error fetching data",
-        description: "Could not fetch data from the database.",
+  const loading = branchesLoading || issuesLoading;
+
+  const filteredAndSortedBranches = React.useMemo(() => {
+    if (!branches) return [];
+    return branches
+      .filter(
+        (branch) =>
+          branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        switch (sortOption) {
+          case "name-asc":
+            return a.name.localeCompare(b.name);
+          case "name-desc":
+            return b.name.localeCompare(a.name);
+          case "id-asc":
+            return a.branchId.localeCompare(b.branchId, undefined, { numeric: true });
+          case "id-desc":
+            return b.branchId.localeCompare(a.branchId, undefined, { numeric: true });
+          default:
+            return 0;
+        }
       });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-
-  React.useEffect(() => {
-    fetchBranches();
-  }, [fetchBranches]);
-
-  const filteredAndSortedBranches = branches
-    .filter(
-      (branch) =>
-        branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      switch (sortOption) {
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "id-asc":
-          return a.branchId.localeCompare(b.branchId, undefined, { numeric: true });
-        case "id-desc":
-          return b.branchId.localeCompare(a.branchId, undefined, { numeric: true });
-        default:
-          return 0;
-      }
-    });
+  }, [branches, searchTerm, sortOption]);
   
   const branchesWithLatestOpenIssue = React.useMemo(() => {
+    if (!branches || !allIssues) return [];
     return branches.map(branch => {
       const openIssues = allIssues
         .filter(issue => issue.branchId === branch.id && issue.status === 'Open')
@@ -141,21 +130,23 @@ export default function Dashboard() {
     }).filter(branch => branch.latestOpenIssue);
   }, [branches, allIssues]);
   
-  const filteredBranchesWithOpenIssue = branchesWithLatestOpenIssue
-    .filter(
-      (branch) =>
-        branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .filter(branch => 
-      branch.name.toLowerCase().includes(openIssuesBranchFilter.toLowerCase())
-    )
-    .filter(branch => 
-      branch.latestOpenIssue!.description.toLowerCase().includes(openIssuesDescriptionFilter.toLowerCase())
-    )
-    .filter(branch => 
-      branch.latestOpenIssue!.responsibility.toLowerCase().includes(openIssuesAssignedToFilter.toLowerCase())
-    );
+  const filteredBranchesWithOpenIssue = React.useMemo(() => {
+    return branchesWithLatestOpenIssue
+      .filter(
+        (branch) =>
+          branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          branch.branchId.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .filter(branch => 
+        branch.name.toLowerCase().includes(openIssuesBranchFilter.toLowerCase())
+      )
+      .filter(branch => 
+        branch.latestOpenIssue!.description.toLowerCase().includes(openIssuesDescriptionFilter.toLowerCase())
+      )
+      .filter(branch => 
+        branch.latestOpenIssue!.responsibility.toLowerCase().includes(openIssuesAssignedToFilter.toLowerCase())
+      );
+  }, [branchesWithLatestOpenIssue, searchTerm, openIssuesBranchFilter, openIssuesDescriptionFilter, openIssuesAssignedToFilter]);
 
 
   const handleOpenDialog = (branch: Branch | null) => {
@@ -184,14 +175,12 @@ export default function Dashboard() {
 
     try {
         if (currentBranch) {
-          const updatedBranch = await updateBranch(currentBranch.id, { branchId, name: branchName, ipAddress: branchIp });
-          setBranches(branches.map(b => b.id === currentBranch.id ? updatedBranch : b));
+          await updateBranch(currentBranch.id, { branchId, name: branchName, ipAddress: branchIp });
           toast({ title: "Success", description: "Branch updated successfully." });
         } else {
           await addBranch({ branchId, name: branchName, ipAddress: branchIp });
           toast({ title: "Success", description: "Branch added successfully." });
         }
-        fetchBranches();
     } catch (error) {
         toast({
             variant: "destructive",
@@ -208,7 +197,6 @@ export default function Dashboard() {
   const handleDeleteBranch = async (id: string) => {
     try {
         await deleteBranch(id);
-        setBranches(branches.filter(b => b.id !== id));
         toast({ title: "Success", description: "Branch deleted successfully." });
     } catch (error) {
         toast({
@@ -246,7 +234,6 @@ export default function Dashboard() {
             for (const branch of branchesToAdd) {
               await addBranch(branch);
             }
-            await fetchBranches();
             toast({
               title: "Upload Successful",
               description: `${branchesToAdd.length} branches have been added.`,
@@ -426,7 +413,7 @@ export default function Dashboard() {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Showing <strong>1-{filteredAndSortedBranches.length}</strong> of <strong>{branches.length}</strong> branches
+              Showing <strong>1-{filteredAndSortedBranches.length}</strong> of <strong>{branches?.length || 0}</strong> branches
             </div>
           </CardFooter>
         </Card>

@@ -1,9 +1,11 @@
 
 import { NextResponse } from 'next/server';
-import { getAllIssues, getBranches, getReportConfigurations } from '@/lib/firestore';
+import { getReportConfigurations } from '@/lib/firestore';
 import { sendNotificationApi } from '@/lib/notifications';
 import { Issue, Branch, ReportConfiguration } from '@/lib/types';
 import { format } from 'date-fns-tz';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const DEFAULT_CONFIG_ID = "default";
 
@@ -83,6 +85,20 @@ async function sendConfiguredReport(config: ReportConfiguration, issues: Issue[]
 
     await sendNotificationApi(notificationPayload);
 }
+
+// Helper function to fetch all issues
+const getAllIssues = async (): Promise<Issue[]> => {
+    const issuesCol = collection(db, 'issues');
+    const issueSnapshot = await getDocs(issuesCol);
+    return issueSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Issue));
+};
+
+// Helper function to fetch all branches
+const getBranches = async (): Promise<Branch[]> => {
+    const branchesCol = collection(db, 'branches');
+    const branchSnapshot = await getDocs(branchesCol);
+    return branchSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Branch));
+};
 
 
 export async function GET(request: Request) {

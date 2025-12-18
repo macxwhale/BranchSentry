@@ -6,9 +6,12 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { getBranches, getAllIssues, addIssue } from '@/lib/firestore';
+import { collection, getDocs } from "firebase/firestore";
+import { db } from '@/lib/firebase';
+import { Branch, Issue } from '@/lib/types';
 import { z } from 'zod';
 import { subDays, formatISO } from 'date-fns';
+import { addIssue } from '@/lib/firestore';
 
 // Define Zod schemas for our data structures
 const BranchSchema = z.object({
@@ -39,7 +42,10 @@ const getBranchesTool = ai.defineTool(
     outputSchema: z.array(BranchSchema),
   },
   async () => {
-    return await getBranches();
+    const branchesCol = collection(db, 'branches');
+    const branchSnapshot = await getDocs(branchesCol);
+    const branchList = branchSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Branch));
+    return branchList;
   }
 );
 
@@ -50,7 +56,10 @@ const getAllIssuesTool = ai.defineTool(
     outputSchema: z.array(IssueSchema),
   },
   async () => {
-    return await getAllIssues();
+    const issuesCol = collection(db, 'issues');
+    const issueSnapshot = await getDocs(issuesCol);
+    const issueList = issueSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Issue));
+    return issueList;
   }
 );
 
@@ -66,7 +75,10 @@ const logIssueTool = ai.defineTool(
     outputSchema: z.string(),
   },
   async ({ branchName, description, responsibility }) => {
-    const branches = await getBranches();
+    const branchesCol = collection(db, 'branches');
+    const branchSnapshot = await getDocs(branchesCol);
+    const branches = branchSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Branch));
+
     const targetBranch = branches.find(b => b.name.toLowerCase() === branchName.toLowerCase());
 
     if (!targetBranch) {

@@ -9,6 +9,7 @@ import {
   Search,
 } from "lucide-react"
 import { format } from "date-fns"
+import { collection, query, where, doc } from "firebase/firestore";
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,19 +56,20 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { Branch, Issue } from "@/lib/types"
-import { addIssue, deleteIssue, getBranch, getIssuesForBranch, updateIssue } from "@/lib/firestore"
+import { addIssue, deleteIssue, updateIssue } from "@/lib/firestore"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useDoc } from "@/hooks/use-doc"
+import { useCollection } from "@/hooks/use-collection"
+import { db } from "@/lib/firebase"
 
 
 export default function BranchDetailPage() {
   const params = useParams()
   const branchId = params.id as string
 
-  const [branch, setBranch] = React.useState<Branch | null>(null)
-  const [issues, setIssues] = React.useState<Issue[]>([])
   const [searchTerm, setSearchTerm] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState("all")
   const [sortOption, setSortOption] = React.useState("date-desc")
@@ -84,28 +86,17 @@ export default function BranchDetailPage() {
 
   const { toast } = useToast()
 
-  React.useEffect(() => {
-    const fetchBranchData = async () => {
-      try {
-        const foundBranch = await getBranch(branchId);
-        if (foundBranch) {
-          setBranch(foundBranch);
-          const branchIssues = await getIssuesForBranch(branchId);
-          setIssues(branchIssues);
-        } else {
-          toast({ variant: "destructive", title: "Error", description: "Branch not found." });
-        }
-      } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to fetch branch data." });
-      }
-    };
+  const { data: branch, loading: branchLoading } = useDoc<Branch>(
+    React.useMemo(() => (branchId ? doc(db, 'branches', branchId) : null), [branchId])
+  );
+  
+  const { data: issues, loading: issuesLoading } = useCollection<Issue>(
+    React.useMemo(() => (branchId ? query(collection(db, 'issues'), where('branchId', '==', branchId)) : null), [branchId])
+  );
 
-    if (branchId) {
-      fetchBranchData();
-    }
-  }, [branchId, toast]);
-
-  const filteredIssues = issues
+  const filteredIssues = React.useMemo(() => {
+    if (!issues) return [];
+    return issues
     .filter((issue) => statusFilter === "all" || issue.status === statusFilter)
     .filter(
       (issue) =>
@@ -140,6 +131,7 @@ export default function BranchDetailPage() {
           return new Date(b.date).getTime() - new Date(a.date).getTime();
       }
     });
+  }, [issues, statusFilter, searchTerm, sortOption]);
 
   const handleOpenDialog = (issue: Issue | null) => {
     setCurrentIssue(issue)
@@ -173,12 +165,14 @@ export default function BranchDetailPage() {
       return;
     }
 
+    if (!branch) return;
+
     const issueData: Partial<Omit<Issue, 'id'>> & { branchId: string } = {
       description,
       responsibility,
       status,
       date: date.toISOString(),
-      branchId: branch!.id,
+      branchId: branch.id,
       ticketNumber,
       ticketUrl,
     };
@@ -193,20 +187,17 @@ export default function BranchDetailPage() {
       }
     } else {
         // If the issue is not resolved, ensure there is no closing date.
-        // For updates where the status might be changing from 'Resolved' to something else.
-        if (currentIssue) {
+        if (issueData.closingDate) {
             issueData.closingDate = undefined;
         }
     }
     
     try {
       if (currentIssue) {
-        const updated = await updateIssue(currentIssue.id, issueData);
-        setIssues(issues.map((i) => (i.id === currentIssue.id ? { ...i, ...updated, id: currentIssue.id } : i)));
+        await updateIssue(currentIssue.id, issueData);
         toast({ title: "Success", description: "Issue updated successfully." });
       } else {
-        const newIssue = await addIssue(issueData as Omit<Issue, 'id'>);
-        setIssues([...issues, newIssue]);
+        await addIssue(issueData as Omit<Issue, 'id'>);
         toast({ title: "Success", description: "Issue logged successfully." });
       }
     } catch (e) {
@@ -221,7 +212,6 @@ export default function BranchDetailPage() {
   const handleDeleteIssue = async (id: string) => {
     try {
         await deleteIssue(id);
-        setIssues(issues.filter(i => i.id !== id));
         toast({ title: "Success", description: "Issue deleted successfully." })
     } catch(e) {
         toast({ variant: "destructive", title: "Error", description: "Failed to delete issue." });
@@ -240,8 +230,7 @@ export default function BranchDetailPage() {
     };
 
     try {
-        const newIssue = await addIssue(clonedIssueData);
-        setIssues([newIssue, ...issues]);
+        await addIssue(clonedIssueData);
         toast({ title: "Success", description: "Issue cloned successfully." });
     } catch (e) {
         console.error("Failed to clone issue:", e);
@@ -254,9 +243,14 @@ export default function BranchDetailPage() {
   };
 
 
-  if (!branch) {
+  if (branchLoading) {
     return <div>Loading branch details...</div>
   }
+  
+  if (!branch) {
+      return <div>Branch not found.</div>
+  }
+
 
   return (
     <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
@@ -283,7 +277,7 @@ export default function BranchDetailPage() {
           <CardHeader className="pb-2">
             <CardDescription>Open Issues</CardDescription>
             <CardTitle className="text-2xl">
-              {issues.filter((i) => i.status !== "Resolved").length}
+              {issues?.filter((i) => i.status !== "Resolved").length || 0}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -443,53 +437,67 @@ export default function BranchDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredIssues.map((issue) => (
-                    <TableRow key={issue.id}>
-                      <TableCell>
-                        <div className="font-medium">{issue.description}</div>
-                      </TableCell>
-                       <TableCell className="hidden sm:table-cell">
-                        {issue.ticketUrl && issue.ticketNumber ? (
-                            <a href={issue.ticketUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                {issue.ticketNumber}
-                            </a>
-                        ) : (
-                            issue.ticketNumber
-                        )}
-                       </TableCell>
-                       <TableCell className="hidden sm:table-cell">
-                        <Badge className="text-xs" variant={issue.status === 'Resolved' ? 'secondary' : (issue.status === 'Open' ? 'destructive' : 'default')}>{issue.status}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">{format(new Date(issue.date), "dd MMM yyyy")}</TableCell>
-                       <TableCell className="hidden md:table-cell">
-                        {issue.closingDate ? format(new Date(issue.closingDate), "dd MMM yyyy") : 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-right">{issue.responsibility}</TableCell>
-                      <TableCell>
-                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onSelect={() => handleOpenDialog(issue)}>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleCloneIssue(issue)}>
-                              <Copy className="mr-2 h-4 w-4" />
-                              Clone
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleDeleteIssue(issue.id)} className="text-destructive">Delete</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {issuesLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center">
+                        Loading issues...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : filteredIssues.length > 0 ? (
+                    filteredIssues.map((issue) => (
+                      <TableRow key={issue.id}>
+                        <TableCell>
+                          <div className="font-medium">{issue.description}</div>
+                        </TableCell>
+                         <TableCell className="hidden sm:table-cell">
+                          {issue.ticketUrl && issue.ticketNumber ? (
+                              <a href={issue.ticketUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                  {issue.ticketNumber}
+                              </a>
+                          ) : (
+                              issue.ticketNumber
+                          )}
+                         </TableCell>
+                         <TableCell className="hidden sm:table-cell">
+                          <Badge className="text-xs" variant={issue.status === 'Resolved' ? 'secondary' : (issue.status === 'Open' ? 'destructive' : 'default')}>{issue.status}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">{format(new Date(issue.date), "dd MMM yyyy")}</TableCell>
+                         <TableCell className="hidden md:table-cell">
+                          {issue.closingDate ? format(new Date(issue.closingDate), "dd MMM yyyy") : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-right">{issue.responsibility}</TableCell>
+                        <TableCell>
+                           <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onSelect={() => handleOpenDialog(issue)}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleCloneIssue(issue)}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Clone
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleDeleteIssue(issue.id)} className="text-destructive">Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                     <TableRow>
+                        <TableCell colSpan={7} className="text-center">
+                            No issues found for this branch.
+                        </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
