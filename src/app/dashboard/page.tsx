@@ -1,85 +1,58 @@
+
 "use client"
 
 import * as React from "react"
 import Link from "next/link"
-import {
-  File,
-  PlusCircle,
-  Search,
-  MoreHorizontal,
-  Upload,
-} from "lucide-react"
+import { File, PlusCircle, Search, MoreHorizontal, Upload } from "lucide-react"
 import Papa from "papaparse"
 import { format } from "date-fns"
-import { collection, query, orderBy, where } from "firebase/firestore";
-
+import { collection } from "firebase/firestore";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Branch, Issue } from "@/lib/types"
 import { addBranch, deleteBranch, updateBranch } from "@/lib/firestore"
 import { useCollection } from "@/hooks/use-collection"
 import { db } from "@/lib/firebase"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+const branchSchema = z.object({
+  branchId: z.string().min(1, "Branch ID is required."),
+  name: z.string().min(1, "Branch name is required."),
+  ipAddress: z.string().ip({ version: "v4", message: "Invalid IP address." }),
+});
+
+type BranchFormValues = z.infer<typeof branchSchema>;
 
 export default function Dashboard() {
   const [searchTerm, setSearchTerm] = React.useState("")
   const [sortOption, setSortOption] = React.useState("name-asc")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [currentBranch, setCurrentBranch] = React.useState<Branch | null>(null)
-  const [branchId, setBranchId] = React.useState("")
-  const [branchName, setBranchName] = React.useState("")
-  const [branchIp, setBranchIp] = React.useState("")
   const [openIssuesBranchFilter, setOpenIssuesBranchFilter] = React.useState('');
   const [openIssuesDescriptionFilter, setOpenIssuesDescriptionFilter] = React.useState('');
   const [openIssuesAssignedToFilter, setOpenIssuesAssignedToFilter] = React.useState('');
+
+  const form = useForm<BranchFormValues>({
+    resolver: zodResolver(branchSchema),
+    defaultValues: {
+      branchId: "",
+      name: "",
+      ipAddress: "",
+    },
+  });
 
   const { data: branches, loading: branchesLoading } = useCollection<Branch>(
     React.useMemo(() => collection(db, 'branches'), [])
@@ -152,33 +125,24 @@ export default function Dashboard() {
   const handleOpenDialog = (branch: Branch | null) => {
     setCurrentBranch(branch)
     if (branch) {
-      setBranchId(branch.branchId)
-      setBranchName(branch.name)
-      setBranchIp(branch.ipAddress)
+      form.reset({
+        branchId: branch.branchId,
+        name: branch.name,
+        ipAddress: branch.ipAddress,
+      });
     } else {
-      setBranchId("")
-      setBranchName("")
-      setBranchIp("")
+      form.reset();
     }
     setIsDialogOpen(true)
   }
 
-  const handleSaveBranch = async () => {
-    if (!branchId || !branchName || !branchIp) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "All fields are required.",
-      })
-      return
-    }
-
+  const handleSaveBranch = async (values: BranchFormValues) => {
     try {
         if (currentBranch) {
-          await updateBranch(currentBranch.id, { branchId, name: branchName, ipAddress: branchIp });
+          await updateBranch(currentBranch.id, values);
           toast({ title: "Success", description: "Branch updated successfully." });
         } else {
-          await addBranch({ branchId, name: branchName, ipAddress: branchIp });
+          await addBranch(values);
           toast({ title: "Success", description: "Branch added successfully." });
         }
     } catch (error) {
@@ -188,7 +152,6 @@ export default function Dashboard() {
             description: "Could not save the branch to the database.",
         });
     }
-
 
     setIsDialogOpen(false)
     setCurrentBranch(null)
@@ -317,30 +280,53 @@ export default function Dashboard() {
                   {currentBranch ? "Update the details of your branch." : "Enter the details for the new branch."}
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="branchId" className="text-right">
-                    Branch ID
-                  </Label>
-                  <Input id="branchId" value={branchId} onChange={(e) => setBranchId(e.target.value)} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="branchName" className="text-right">
-                    Name
-                  </Label>
-                  <Input id="branchName" value={branchName} onChange={(e) => setBranchName(e.target.value)} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="branchIp" className="text-right">
-                    IP Address
-                  </Label>
-                  <Input id="branchIp" value={branchIp} onChange={(e) => setBranchIp(e.target.value)} className="col-span-3" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleSaveBranch}>Save</Button>
-              </DialogFooter>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleSaveBranch)} className="grid gap-4 py-4">
+                  <FormField
+                    control={form.control}
+                    name="branchId"
+                    render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel className="text-right">Branch ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} className="col-span-3" />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel className="text-right">Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} className="col-span-3" />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="ipAddress"
+                    render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel className="text-right">IP Address</FormLabel>
+                        <FormControl>
+                          <Input {...field} className="col-span-3" />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3" />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit">Save</Button>
+                  </DialogFooter>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </div>
@@ -485,3 +471,5 @@ export default function Dashboard() {
     </Tabs>
   )
 }
+
+    

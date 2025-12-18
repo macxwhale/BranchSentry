@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -16,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { chat } from "@/ai/flows/chat-flow"
+import { useUser } from "@/hooks/use-user"
 
 type Message = {
   text: string
@@ -34,6 +36,9 @@ export function Chat({
   const [isLoading, setIsLoading] = React.useState(false)
   const { toast } = useToast()
   const scrollAreaRef = React.useRef<HTMLDivElement>(null)
+  const { user } = useUser();
+
+  const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : "U";
 
   const handleSend = async () => {
     if (!input.trim()) return
@@ -105,8 +110,8 @@ export function Chat({
                 </div>
                 {message.isUser && (
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={`https://picsum.photos/seed/user-chat/32/32`} alt="User" />
-                    <AvatarFallback>U</AvatarFallback>
+                    <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/32/32`} alt="User" />
+                    <AvatarFallback>{userInitial}</AvatarFallback>
                   </Avatar>
                 )}
               </div>
@@ -150,3 +155,5 @@ export function Chat({
     </Sheet>
   )
 }
+
+    

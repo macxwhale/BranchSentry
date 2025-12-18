@@ -1,58 +1,24 @@
+
 "use client"
 
 import * as React from "react"
 import { useParams } from "next/navigation"
-import {
-  Copy,
-  MoreHorizontal,
-  PlusCircle,
-  Search,
-} from "lucide-react"
+import { Copy, MoreHorizontal, PlusCircle, Search } from "lucide-react"
 import { format } from "date-fns"
 import { collection, query, where, doc } from "firebase/firestore";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { Branch, Issue } from "@/lib/types"
@@ -64,7 +30,19 @@ import { cn } from "@/lib/utils"
 import { useDoc } from "@/hooks/use-doc"
 import { useCollection } from "@/hooks/use-collection"
 import { db } from "@/lib/firebase"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
+
+const issueSchema = z.object({
+  description: z.string().min(1, "Description is required."),
+  responsibility: z.string().min(1, "Responsibility is required."),
+  status: z.enum(["Open", "In Progress", "Resolved"]),
+  date: z.date(),
+  ticketNumber: z.string().optional(),
+  ticketUrl: z.string().url().or(z.literal("")).optional(),
+});
+
+type IssueFormValues = z.infer<typeof issueSchema>;
 
 export default function BranchDetailPage() {
   const params = useParams()
@@ -75,16 +53,20 @@ export default function BranchDetailPage() {
   const [sortOption, setSortOption] = React.useState("date-desc")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [currentIssue, setCurrentIssue] = React.useState<Issue | null>(null)
-  const [description, setDescription] = React.useState("")
-  const [responsibility, setResponsibility] = React.useState("")
-  const [status, setStatus] = React.useState<Issue["status"]>("Open")
-  const [date, setDate] = React.useState<Date | undefined>(new Date())
-  const [ticketNumber, setTicketNumber] = React.useState("")
-  const [ticketUrl, setTicketUrl] = React.useState("")
-  const [closingDate, setClosingDate] = React.useState<Date | undefined>()
-
 
   const { toast } = useToast()
+
+  const form = useForm<IssueFormValues>({
+    resolver: zodResolver(issueSchema),
+    defaultValues: {
+      description: "",
+      responsibility: "",
+      status: "Open",
+      date: new Date(),
+      ticketNumber: "",
+      ticketUrl: "",
+    },
+  });
 
   const { data: branch, loading: branchLoading } = useDoc<Branch>(
     React.useMemo(() => (branchId ? doc(db, 'branches', branchId) : null), [branchId])
@@ -136,57 +118,36 @@ export default function BranchDetailPage() {
   const handleOpenDialog = (issue: Issue | null) => {
     setCurrentIssue(issue)
     if (issue) {
-      setDescription(issue.description)
-      setResponsibility(issue.responsibility)
-      setStatus(issue.status)
-      setDate(new Date(issue.date))
-      setTicketNumber(issue.ticketNumber || "")
-      setTicketUrl(issue.ticketUrl || "")
-      setClosingDate(issue.closingDate ? new Date(issue.closingDate) : undefined)
+      form.reset({
+        description: issue.description,
+        responsibility: issue.responsibility,
+        status: issue.status,
+        date: new Date(issue.date),
+        ticketNumber: issue.ticketNumber || "",
+        ticketUrl: issue.ticketUrl || "",
+      });
     } else {
-      setDescription("")
-      setResponsibility("")
-      setStatus("Open")
-      setDate(new Date())
-      setTicketNumber("")
-      setTicketUrl("")
-      setClosingDate(undefined)
+      form.reset();
     }
     setIsDialogOpen(true)
   }
 
-  const handleSaveIssue = async () => {
-    if (!description || !responsibility || !date) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "All fields are required.",
-      });
-      return;
-    }
-
+  const handleSaveIssue = async (values: IssueFormValues) => {
     if (!branch) return;
 
     const issueData: Partial<Omit<Issue, 'id'>> & { branchId: string } = {
-      description,
-      responsibility,
-      status,
-      date: date.toISOString(),
+      ...values,
+      date: values.date.toISOString(),
       branchId: branch.id,
-      ticketNumber,
-      ticketUrl,
     };
 
-    if (status === 'Resolved') {
-      // If status is changing to Resolved, set a new closing date if it wasn't resolved before.
+    if (values.status === 'Resolved') {
       if (!currentIssue || currentIssue.status !== 'Resolved') {
         issueData.closingDate = new Date().toISOString();
       } else if (currentIssue?.closingDate) {
-        // If it was already resolved, keep the original closing date.
         issueData.closingDate = currentIssue.closingDate;
       }
     } else {
-        // If the issue is not resolved, ensure there is no closing date.
         if (issueData.closingDate) {
             issueData.closingDate = undefined;
         }
@@ -301,79 +262,139 @@ export default function BranchDetailPage() {
                 <DialogHeader>
                   <DialogTitle>{currentIssue ? "Edit Issue" : "Log New Issue"}</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="ticketNumber">Ticket Number</Label>
-                      <Input id="ticketNumber" value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)} />
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleSaveIssue)} className="grid gap-4 py-4">
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                       <FormField
+                        control={form.control}
+                        name="ticketNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Ticket Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                       <FormField
+                        control={form.control}
+                        name="ticketUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Ticket URL</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                     <div className="grid gap-2">
-                      <Label htmlFor="ticketUrl">Ticket URL</Label>
-                      <Input id="ticketUrl" value={ticketUrl} onChange={(e) => setTicketUrl(e.target.value)} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="responsibility"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Responsibility</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select responsibility" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="CRDB">CRDB</SelectItem>
+                                <SelectItem value="Zaoma">Zaoma</SelectItem>
+                                <SelectItem value="Wavetec">Wavetec</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Status</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Open">Open</SelectItem>
+                                <SelectItem value="In Progress">In Progress</SelectItem>
+                                <SelectItem value="Resolved">Resolved</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="responsibility">Responsibility</Label>
-                      <Select value={responsibility} onValueChange={setResponsibility}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select responsibility" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CRDB">CRDB</SelectItem>
-                          <SelectItem value="Zaoma">Zaoma</SelectItem>
-                          <SelectItem value="Wavetec">Wavetec</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="status">Status</Label>
-                       <Select value={status} onValueChange={(value) => setStatus(value as Issue['status'])}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Open">Open</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Resolved">Resolved</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                   <div className="grid gap-2">
-                      <Label htmlFor="date">Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "justify-start text-left font-normal",
-                              !date && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date ? format(date, "dd MMM yyyy") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={setDate}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleSaveIssue}>Save</Button>
-                </DialogFooter>
+                    <FormField
+                      control={form.control}
+                      name="date"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Date</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "dd MMM yyyy")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                      <Button type="submit">Save</Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
               </DialogContent>
             </Dialog>
           </div>
@@ -506,3 +527,5 @@ export default function BranchDetailPage() {
     </div>
   )
 }
+
+    

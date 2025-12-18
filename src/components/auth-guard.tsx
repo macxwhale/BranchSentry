@@ -1,11 +1,12 @@
+
 "use client"
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
+import { useUser } from "@/hooks/use-user"
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isApproved, loading } = useAuth()
+  const { user, isApproved, loading } = useUser()
   const router = useRouter()
 
   React.useEffect(() => {
@@ -26,3 +27,5 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>
 }
+
+    

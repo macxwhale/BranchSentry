@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -37,6 +38,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/contexts/auth-context"
 import AuthGuard from "@/components/auth-guard"
 import { Chat } from "@/components/chat"
+import { useUser } from "@/hooks/use-user"
 
 function DashboardLayoutContent({
   children,
@@ -45,6 +47,7 @@ function DashboardLayoutContent({
 }) {
   const pathname = usePathname()
   const { logout } = useAuth()
+  const { user } = useUser();
   const router = useRouter()
   const [isChatOpen, setIsChatOpen] = React.useState(false);
 
@@ -53,6 +56,8 @@ function DashboardLayoutContent({
     await logout()
     router.push("/login")
   }
+  
+  const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : "U";
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -170,8 +175,8 @@ function DashboardLayoutContent({
                 className="overflow-hidden rounded-full"
               >
                 <Avatar>
-                  <AvatarImage src={`https://picsum.photos/seed/user/32/32`} alt="User avatar" />
-                  <AvatarFallback>U</AvatarFallback>
+                  <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/32/32`} alt="User avatar" />
+                  <AvatarFallback>{userInitial}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -205,3 +210,5 @@ export default function DashboardLayout({
     </AuthGuard>
   )
 }
+
+    
