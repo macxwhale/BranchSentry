@@ -79,7 +79,7 @@ async function sendConfiguredReport(config: ReportConfiguration, issues: Issue[]
         silent: config.silent ?? false,
     };
 
-    if (config.attach) {
+    if (config.attach && config.attach.trim() !== '') {
         notificationPayload.attach = [config.attach];
     }
 
