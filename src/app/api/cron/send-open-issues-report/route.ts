@@ -132,7 +132,7 @@ export async function GET(request: Request) {
     
     const configMap = new Map(reportConfigs.map(c => [c.id, c]));
     
-    const defaultConfigFromDb = configMap.get(DEFAULT_CONFIG_ID) || {
+    const defaultConfig = configMap.get(DEFAULT_CONFIG_ID) || {
         id: DEFAULT_CONFIG_ID,
         time: '09:00',
         enabled: true,
@@ -158,7 +158,7 @@ export async function GET(request: Request) {
             const issuesForTeam = issuesByResponsibility[team];
             const teamSpecificConfig = configMap.get(team) || {};
             // Merge defaults with team-specific settings
-            const finalConfig = { ...defaultConfigFromDb, ...teamSpecificConfig, id: team };
+            const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
             
             await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
             reportsSentCount++;
@@ -177,19 +177,23 @@ export async function GET(request: Request) {
     const currentTimeEAT = format(now, 'HH:mm', { timeZone: 'Africa/Nairobi' });
     let reportsSentCount = 0;
     
-    const teamConfigs = reportConfigs.filter(c => c.id !== DEFAULT_CONFIG_ID);
+    // Check if it's time to send reports based on the default configuration's time
+    if (defaultConfig.enabled && defaultConfig.time === currentTimeEAT) {
+        const responsiblePartiesWithOpenIssues = Object.keys(issuesByResponsibility);
 
-    for (const teamConfig of teamConfigs) {
-      if (teamConfig.enabled && teamConfig.time === currentTimeEAT) {
-        const responsibility = teamConfig.id;
-        const issuesForTeam = issuesByResponsibility[responsibility];
+        for (const team of responsiblePartiesWithOpenIssues) {
+            const issuesForTeam = issuesByResponsibility[team];
+            const teamSpecificConfig = configMap.get(team) || {};
+            
+            // Merge defaults with team-specific settings
+            const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
 
-        if (issuesForTeam && issuesForTeam.length > 0) {
-          const finalConfig = { ...defaultConfigFromDb, ...teamConfig };
-          await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
-          reportsSentCount++;
+            // Only send if the merged config is enabled
+            if (finalConfig.enabled) {
+                await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
+                reportsSentCount++;
+            }
         }
-      }
     }
     
     return NextResponse.json({ message: `Cron job finished. Sent ${reportsSentCount} reports.` });
