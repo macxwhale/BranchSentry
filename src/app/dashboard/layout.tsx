@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import {
   Building2,
   GitBranch,
@@ -99,14 +99,18 @@ function DashboardLayoutContent({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="sm:max-w-xs">
-              <nav className="grid gap-6 text-lg font-medium">
-                <Link
-                  href="#"
-                  className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
-                >
-                  <GitBranch className="h-5 w-5 transition-all group-hover:scale-110" />
-                  <span className="sr-only">Branch Sentry</span>
-                </Link>
+               <SheetHeader>
+                <SheetTitle>
+                   <Link
+                    href="#"
+                    className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
+                  >
+                    <GitBranch className="h-5 w-5 transition-all group-hover:scale-110" />
+                    <span className="sr-only">Branch Sentry</span>
+                  </Link>
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="grid gap-6 text-lg font-medium mt-4">
                 <Link
                   href="/dashboard"
                   className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
@@ -210,5 +214,3 @@ export default function DashboardLayout({
     </AuthGuard>
   )
 }
-
-    
