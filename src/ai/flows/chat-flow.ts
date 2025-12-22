@@ -115,16 +115,13 @@ const getDateFromDaysAgoTool = ai.defineTool(
     }
 );
 
-
-const chatFlow = ai.defineFlow(
+const chatPrompt = ai.definePrompt(
   {
-    name: 'chatFlow',
-    inputSchema: z.string(),
-    outputSchema: z.string(),
-  },
-  async (query) => {
-    
-    const prompt = `
+    name: 'chatPrompt',
+    input: { schema: z.string() },
+    output: { schema: z.string() },
+    tools: [getBranchesTool, getAllIssuesTool, logIssueTool, getDateFromDaysAgoTool],
+    prompt: `
       You are Branch Sentry AI, a friendly and powerful assistant for an application called Branch Sentry.
       Your personality is helpful, proactive, and conversational.
 
@@ -149,15 +146,20 @@ const chatFlow = ai.defineFlow(
         *   If you use the tools and still cannot find the information (e.g., a branch name does not exist), say "I can't seem to find that information in our database. I can only answer questions about branches and their issues."
         *   Do not answer questions that are not related to branches or issues. Politely decline by saying something like "I'm the Branch Sentry AI, and my expertise is limited to information about your branches and issues. I can't help with that."
 
-      User question: ${query}
-    `
-    
-    const llmResponse = await ai.generate({
-      prompt: prompt,
-      tools: [getBranchesTool, getAllIssuesTool, logIssueTool, getDateFromDaysAgoTool],
-      model: 'googleai/gemini-2.5-flash',
-    });
+      User question: {{input}}
+    `,
+  }
+);
 
+
+const chatFlow = ai.defineFlow(
+  {
+    name: 'chatFlow',
+    inputSchema: z.string(),
+    outputSchema: z.string(),
+  },
+  async (query) => {
+    const llmResponse = await chatPrompt(query);
     return llmResponse.text;
   }
 );
