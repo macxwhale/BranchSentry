@@ -31,13 +31,21 @@ export type FormState = {
  */
 export async function sendNotificationApi(notification: z.infer<typeof notificationApiSchema>) {
     try {
+        const payload: any = { ...notification };
+        
+        // If attach is present but is an empty array, remove it.
+        // The API might reject requests with an empty `attach` field.
+        if (payload.attach && payload.attach.length === 0) {
+            delete payload.attach;
+        }
+
         const response = await fetch("https://notify-woi3.onrender.com/api/notify", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${process.env.NOTIFY_API_KEY}`,
             },
-            body: JSON.stringify(notification),
+            body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
