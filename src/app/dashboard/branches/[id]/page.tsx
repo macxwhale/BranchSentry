@@ -254,7 +254,7 @@ export default function BranchDetailPage() {
           <CardHeader className="pb-2">
             <CardDescription>Total Tickets</CardDescription>
             <CardTitle className="text-2xl">
-              {issues?.filter((i) => !!i.ticketNumber).length || 0}
+              {issues?.filter((i) => i.ticketNumber && i.ticketNumber.trim() !== '').length || 0}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -543,5 +543,3 @@ export default function BranchDetailPage() {
     </div>
   )
 }
-
-    
