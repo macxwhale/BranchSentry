@@ -11,7 +11,7 @@ import { db } from '@/lib/firebase';
 import { Branch, Issue } from '@/lib/types';
 import { z } from 'zod';
 import { subDays, formatISO } from 'date-fns';
-import { addIssue } from '@/lib/firestore';
+import { addIssue, updateBranch } from '@/lib/firestore';
 
 // Define Zod schemas for our data structures
 const BranchSchema = z.object({
@@ -116,12 +116,65 @@ const getDateFromDaysAgoTool = ai.defineTool(
     }
 );
 
+const updateLastWorkedFromTicketDataTool = ai.defineTool(
+  {
+    name: 'updateLastWorkedFromTicketData',
+    description: 'Processes a list of branches with their total ticket counts and updates their `lastWorked` status in the database. This should be used when the user provides a block of text/CSV data with branch names and ticket counts and asks to update their status.',
+    inputSchema: z.object({
+      branchData: z.string().describe('A string containing branch data. Each line should contain branch name, IP address, and total tickets, separated by tabs.'),
+    }),
+    outputSchema: z.string(),
+  },
+  async ({ branchData }) => {
+    const lines = branchData.trim().split('\n').slice(1); // Skip header
+    if (lines.length === 0) {
+      return "Error: No data provided to process.";
+    }
+
+    // 1. Get all branches from Firestore
+    const branchesCol = collection(db, 'branches');
+    const branchSnapshot = await getDocs(branchesCol);
+    const allBranches = branchSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Branch));
+    const branchesByName = new Map(allBranches.map(b => [b.name.toLowerCase(), b]));
+
+    let updatedCount = 0;
+    const updatePromises: Promise<any>[] = [];
+    const newDate = new Date().toISOString();
+
+    // 2. Process provided data
+    for (const line of lines) {
+      const parts = line.split('\t'); // Assuming tab-separated
+      if (parts.length < 3) continue;
+
+      const name = parts[0].trim();
+      const totalTickets = parseInt(parts[2].trim(), 10);
+
+      const branchToUpdate = branchesByName.get(name.toLowerCase());
+
+      if (branchToUpdate && !isNaN(totalTickets) && totalTickets > 0) {
+        // 3. Update lastWorked if tickets > 0
+        updatePromises.push(
+          updateBranch(branchToUpdate.id, { lastWorked: newDate })
+        );
+        updatedCount++;
+      }
+    }
+
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+    }
+    
+    return `Successfully processed the data. Updated the 'lastWorked' status for ${updatedCount} branches.`;
+  }
+);
+
+
 const chatPrompt = ai.definePrompt(
   {
     name: 'chatPrompt',
     input: { schema: z.string() },
     output: { schema: z.string() },
-    tools: [getBranchesTool, getAllIssuesTool, logIssueTool, getDateFromDaysAgoTool],
+    tools: [getBranchesTool, getAllIssuesTool, logIssueTool, getDateFromDaysAgoTool, updateLastWorkedFromTicketDataTool],
     prompt: `
       You are Branch Sentry AI, a friendly and powerful assistant for an application called Branch Sentry.
       Your personality is helpful, proactive, and conversational.
@@ -134,6 +187,7 @@ const chatPrompt = ai.definePrompt(
         *   Use 'getAllIssues' for any questions about issues (like status, description, or responsibility).
         *   Use 'logIssue' when the user asks you to create, log, or add a new issue. You will need to ask for the branch name, description, and who is responsible if it is not provided.
         *   Use 'getDateFromDaysAgo' when the user asks a question about a specific time period, like "in the last week" or "in the last 30 days".
+        *   Use 'updateLastWorkedFromTicketData' when the user provides a block of text or CSV-like data containing branch names and ticket counts, and asks to update the system based on this data. The tool will handle updating the 'lastWorked' date for branches with more than zero tickets.
 
       2.  **Answering Questions About Specific Branches:**
         *   To answer a question like "What issues does Tarime branch have?", you must first find the branch in the output of 'getBranches'. **Perform a case-insensitive search** for the branch name.
