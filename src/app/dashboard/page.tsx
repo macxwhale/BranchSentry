@@ -101,9 +101,21 @@ export default function Dashboard() {
           case "id-asc":
             return a.branchId.localeCompare(b.branchId, undefined, { numeric: true });
           case "id-desc":
-            return b.branchId.localeCompare(b.branchId, undefined, { numeric: true });
+            return b.branchId.localeCompare(a.branchId, undefined, { numeric: true });
+          case "last-worked-desc":
+            if (!a.lastWorked) return 1;
+            if (!b.lastWorked) return -1;
+            return new Date(b.lastWorked).getTime() - new Date(a.lastWorked).getTime();
+          case "last-worked-asc":
+            if (!a.lastWorked) return 1;
+            if (!b.lastWorked) return -1;
+            return new Date(a.lastWorked).getTime() - new Date(b.lastWorked).getTime();
+          case "total-tickets-desc":
+            return b.totalTickets - a.totalTickets;
+          case "total-tickets-asc":
+            return a.totalTickets - b.totalTickets;
           default:
-            return 0;
+            return a.name.localeCompare(b.name);
         }
       });
   }, [branchesWithTicketCount, searchTerm, sortOption]);
@@ -332,6 +344,10 @@ export default function Dashboard() {
               <SelectItem value="name-desc">Name (Z-A)</SelectItem>
               <SelectItem value="id-asc">Branch ID (Asc)</SelectItem>
               <SelectItem value="id-desc">Branch ID (Desc)</SelectItem>
+              <SelectItem value="last-worked-desc">Last Worked (Newest)</SelectItem>
+              <SelectItem value="last-worked-asc">Last Worked (Oldest)</SelectItem>
+              <SelectItem value="total-tickets-desc">Tickets (High-Low)</SelectItem>
+              <SelectItem value="total-tickets-asc">Tickets (Low-High)</SelectItem>
             </SelectContent>
           </Select>
           <div className="relative ml-auto flex-1 md:grow-0">
@@ -419,7 +435,9 @@ export default function Dashboard() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <Textarea
-                        placeholder={`[{ "name": "Mlimani City", "totalTickets": 496 }]`}
+                        placeholder={`[
+  { "name": "Mlimani City", "totalTickets": 496 }
+]`}
                         className="min-h-[200px] font-mono"
                         value={jsonInput}
                         onChange={(e) => setJsonInput(e.target.value)}
