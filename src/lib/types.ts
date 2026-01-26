@@ -3,6 +3,7 @@ export type Branch = {
   branchId: string;
   name: string;
   ipAddress: string;
+  lastWorked?: string; // ISO string
 };
 
 export type Issue = {

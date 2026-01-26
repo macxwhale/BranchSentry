@@ -19,6 +19,7 @@ const BranchSchema = z.object({
   branchId: z.string().describe('The human-readable ID for the branch.'),
   name: z.string().describe('The name of the branch.'),
   ipAddress: z.string().describe('The IP address of the branch.'),
+  lastWorked: z.string().optional().describe('The last time the branch was confirmed to be working, in ISO string format.'),
 });
 
 const IssueSchema = z.object({

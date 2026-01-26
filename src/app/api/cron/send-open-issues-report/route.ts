@@ -12,8 +12,15 @@ const DEFAULT_CONFIG_ID = "default";
 function formatDefaultIssueList(issues: Issue[], branchesById: Record<string, Branch>): string {
     let issueListStr = "";
     issues.forEach(issue => {
-        const branchName = branchesById[issue.branchId]?.name || 'Unknown Branch';
-        issueListStr += `**🏢 Branch: ${branchName}**\n`;
+        const branch = branchesById[issue.branchId];
+        const branchName = branch?.name || 'Unknown Branch';
+        
+        let branchTitle = `**🏢 Branch: ${branchName}**`;
+        if (branch?.lastWorked) {
+            branchTitle += ` (Last worked: ${format(new Date(branch.lastWorked), 'dd MMM p')})`;
+        }
+        issueListStr += `${branchTitle}\n`;
+
         issueListStr += `📊 Status: ${issue.status}\n`;
         issueListStr += `🐛 Issue: ${issue.description}\n`;
 

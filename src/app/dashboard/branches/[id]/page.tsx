@@ -215,7 +215,7 @@ export default function BranchDetailPage() {
 
   return (
     <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Branch Name</CardDescription>
@@ -232,6 +232,14 @@ export default function BranchDetailPage() {
           <CardHeader className="pb-2">
             <CardDescription>IP Address</CardDescription>
             <CardTitle className="text-2xl">{branch.ipAddress}</CardTitle>
+          </CardHeader>
+        </Card>
+         <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Last Worked</CardDescription>
+            <CardTitle className="text-xl">
+              {branch.lastWorked ? format(new Date(branch.lastWorked), "dd MMM yyyy, p") : 'N/A'}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>

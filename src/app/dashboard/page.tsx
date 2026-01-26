@@ -169,6 +169,20 @@ export default function Dashboard() {
         });
     }
   }
+
+  const handleMarkAsWorking = async (branchId: string) => {
+    try {
+      await updateBranch(branchId, { lastWorked: new Date().toISOString() });
+      toast({ title: "Success", description: "Branch 'last worked' time has been updated." });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update branch status.",
+      });
+    }
+  };
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -348,6 +362,9 @@ export default function Dashboard() {
                   <TableHead className="hidden md:table-cell">
                     IP Address
                   </TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Last Worked
+                  </TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -356,7 +373,7 @@ export default function Dashboard() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center">Loading...</TableCell>
+                    <TableCell colSpan={5} className="text-center">Loading...</TableCell>
                   </TableRow>
                 ) : (
                   filteredAndSortedBranches.map((branch) => (
@@ -371,6 +388,9 @@ export default function Dashboard() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         {branch.ipAddress}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {branch.lastWorked ? format(new Date(branch.lastWorked), "dd MMM yyyy, p") : 'N/A'}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -387,6 +407,7 @@ export default function Dashboard() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem onSelect={() => handleOpenDialog(branch)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleMarkAsWorking(branch.id)}>Mark as Working</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => handleDeleteBranch(branch.id)} className="text-destructive">Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
