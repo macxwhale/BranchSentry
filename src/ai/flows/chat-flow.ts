@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A chatbot flow that can answer questions about branches and issues.
@@ -171,12 +172,21 @@ const updateLastWorkedFromTicketDataTool = ai.defineTool(
 );
 
 
+const allTools = {
+  getBranches: getBranchesTool,
+  getAllIssues: getAllIssuesTool,
+  logIssue: logIssueTool,
+  getDateFromDaysAgo: getDateFromDaysAgoTool,
+  updateLastWorkedFromTicketData: updateLastWorkedFromTicketDataTool,
+};
+
+
 const chatPrompt = ai.definePrompt(
   {
     name: 'chatPrompt',
     input: { schema: z.string() },
     output: { schema: z.string() },
-    tools: [getBranchesTool, getAllIssuesTool, logIssueTool, getDateFromDaysAgoTool, updateLastWorkedFromTicketDataTool],
+    tools: Object.values(allTools),
     prompt: `
       You are Branch Sentry AI, a friendly and powerful assistant for an application called Branch Sentry.
       Your personality is helpful, proactive, and conversational.
@@ -216,20 +226,53 @@ const chatFlow = ai.defineFlow(
     outputSchema: z.string(),
   },
   async (query) => {
+    // Get the initial response from the model.
     let llmResponse = await chatPrompt(query);
 
+    // If the model wants to use tools, we loop until it has everything it needs.
     while (llmResponse.toolRequests.length > 0) {
+      // Execute all the tool requests in parallel.
       const toolResponses = await Promise.all(
         llmResponse.toolRequests.map(async (toolRequest) => {
-          return {
-            toolResult: await ai.runTool(toolRequest),
-          };
+          const tool = allTools[toolRequest.name as keyof typeof allTools];
+          if (!tool) {
+            // If the tool is not found, return an error.
+            return {
+              toolResult: {
+                toolRequestId: toolRequest.id,
+                output: `Tool not found: ${toolRequest.name}`,
+                isError: true,
+              },
+            };
+          }
+          try {
+            // Execute the tool with the input provided by the model.
+            const output = await tool(toolRequest.input);
+            return {
+              toolResult: {
+                toolRequestId: toolRequest.id,
+                output: output,
+              },
+            };
+          } catch (e) {
+            // If the tool throws an error, return it to the model.
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            return {
+              toolResult: {
+                toolRequestId: toolRequest.id,
+                output: `Error executing tool ${toolRequest.name}: ${errorMessage}`,
+                isError: true,
+              },
+            };
+          }
         })
       );
-      
+
+      // Send the tool responses back to the model and get the next response.
       llmResponse = await chatPrompt(query, { toolResponses });
     }
-    
+
+    // Once the model is done using tools, return its final text response.
     return llmResponse.text;
   }
 );
