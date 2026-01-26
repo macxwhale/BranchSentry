@@ -67,10 +67,18 @@ export default function Dashboard() {
 
   const branchesWithTicketCount = React.useMemo(() => {
     if (!branches || !allIssues) return [];
-    return branches.map(branch => {
-        const totalTickets = allIssues.filter(issue => issue.branchId === branch.id && !!issue.ticketNumber).length;
-        return { ...branch, totalTickets };
-    });
+
+    const ticketCounts = allIssues.reduce((acc, issue) => {
+        if (issue.ticketNumber && issue.branchId) {
+            acc[issue.branchId] = (acc[issue.branchId] || 0) + 1;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+
+    return branches.map(branch => ({
+        ...branch,
+        totalTickets: ticketCounts[branch.id] || 0
+    }));
   }, [branches, allIssues]);
 
   const filteredAndSortedBranches = React.useMemo(() => {
@@ -506,5 +514,3 @@ export default function Dashboard() {
     </Tabs>
   )
 }
-
-    

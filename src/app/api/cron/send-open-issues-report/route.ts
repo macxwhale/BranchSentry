@@ -157,7 +157,7 @@ export async function GET(request: Request) {
     }, {} as Record<string, Branch>);
 
     const ticketsByBranchId = allIssues.reduce((acc, issue) => {
-        if (issue.ticketNumber) {
+        if (issue.ticketNumber && issue.ticketNumber.trim() !== '') {
             if (!acc[issue.branchId]) {
                 acc[issue.branchId] = 0;
             }
