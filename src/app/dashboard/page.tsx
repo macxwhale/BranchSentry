@@ -300,6 +300,66 @@ export default function Dashboard() {
     }
   };
 
+  const handleDownloadCsv = () => {
+    if (!allIssues || !branches) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Data is not available yet to generate the report.",
+      });
+      return;
+    }
+
+    const openIssues = allIssues.filter(
+      (issue) => issue.status === 'Open' || issue.status === 'In Progress'
+    );
+
+    if (openIssues.length === 0) {
+      toast({
+        title: "No Open Issues",
+        description: "There are no open issues to report.",
+      });
+      return;
+    }
+
+    const branchesById = branches.reduce((acc, branch) => {
+      acc[branch.id] = branch;
+      return acc;
+    }, {} as Record<string, Branch>);
+
+    const reportData = openIssues.map((issue) => {
+      const branch = branchesById[issue.branchId];
+      return {
+        "Branch Name": branch?.name || "N/A",
+        "Branch ID": branch?.branchId || "N/A",
+        "Issue Description": issue.description,
+        "Issue Status": issue.status,
+        "Responsibility": issue.responsibility,
+        "Date Opened": format(new Date(issue.date), "yyyy-MM-dd"),
+        "Ticket Number": issue.ticketNumber || "",
+        "Last Worked": branch?.lastWorked ? format(new Date(branch.lastWorked), "yyyy-MM-dd p") : 'N/A',
+        "Total Tickets": branch?.totalTickets ?? 0,
+      };
+    });
+
+    const csv = Papa.unparse(reportData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    const reportDate = format(new Date(), "yyyy-MM-dd");
+    link.setAttribute('download', `open-issues-report-${reportDate}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Report Generated",
+      description: "Your CSV report has been downloaded.",
+    });
+  };
+
   return (
     <Tabs defaultValue="all">
       <div className="flex items-center">
@@ -308,6 +368,10 @@ export default function Dashboard() {
           <TabsTrigger value="open-issues">Open Issues</TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={handleDownloadCsv}>
+            <File className="h-3.5 w-3.5 mr-2" />
+            Export CSV
+          </Button>
           <Button size="sm" variant="outline" asChild>
             <Label htmlFor="csv-upload" className="cursor-pointer">
                <Upload className="h-3.5 w-3.5 mr-2" />
