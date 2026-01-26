@@ -68,25 +68,9 @@ export default function Dashboard() {
 
   const loading = branchesLoading || issuesLoading;
 
-  const branchesWithTicketCount = React.useMemo(() => {
-    if (!branches || !allIssues) return [];
-
-    const ticketCounts = allIssues.reduce((acc, issue) => {
-        if (issue.ticketNumber && issue.ticketNumber.trim() !== '' && issue.branchId) {
-            acc[issue.branchId] = (acc[issue.branchId] || 0) + 1;
-        }
-        return acc;
-    }, {} as Record<string, number>);
-
-    return branches.map(branch => ({
-        ...branch,
-        totalTickets: ticketCounts[branch.id] || 0
-    }));
-  }, [branches, allIssues]);
-
   const filteredAndSortedBranches = React.useMemo(() => {
-    if (!branchesWithTicketCount) return [];
-    return branchesWithTicketCount
+    if (!branches) return [];
+    return branches
       .filter(
         (branch) =>
           branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -111,14 +95,14 @@ export default function Dashboard() {
             if (!b.lastWorked) return -1;
             return new Date(a.lastWorked).getTime() - new Date(b.lastWorked).getTime();
           case "total-tickets-desc":
-            return b.totalTickets - a.totalTickets;
+            return (b.totalTickets ?? 0) - (a.totalTickets ?? 0);
           case "total-tickets-asc":
-            return a.totalTickets - b.totalTickets;
+            return (a.totalTickets ?? 0) - (b.totalTickets ?? 0);
           default:
             return a.name.localeCompare(b.name);
         }
       });
-  }, [branchesWithTicketCount, searchTerm, sortOption]);
+  }, [branches, searchTerm, sortOption]);
   
   const branchesWithLatestOpenIssue = React.useMemo(() => {
     if (!branches || !allIssues) return [];
@@ -502,7 +486,7 @@ export default function Dashboard() {
                         {branch.lastWorked ? format(new Date(branch.lastWorked), "dd MMM yyyy, p") : 'N/A'}
                       </TableCell>
                        <TableCell className="hidden md:table-cell">
-                        {branch.totalTickets}
+                        {branch.totalTickets ?? 0}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

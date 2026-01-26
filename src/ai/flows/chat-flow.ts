@@ -144,6 +144,7 @@ const updateLastWorkedFromTicketDataTool = ai.defineTool(
     const branchesByName = new Map(allBranches.map(b => [b.name.toLowerCase(), b]));
 
     let updatedCount = 0;
+    let lastWorkedUpdatedCount = 0;
     const updatePromises: Promise<any>[] = [];
     const newDate = new Date().toISOString();
 
@@ -155,9 +156,16 @@ const updateLastWorkedFromTicketDataTool = ai.defineTool(
 
       const branchToUpdate = branchesByName.get(name.toLowerCase());
 
-      if (branchToUpdate && totalTickets > 0) {
+      if (branchToUpdate) {
+        const updatePayload: Partial<Omit<Branch, "id">> = {
+          totalTickets: totalTickets,
+        };
+        if (totalTickets > 0) {
+          updatePayload.lastWorked = newDate;
+          lastWorkedUpdatedCount++;
+        }
         updatePromises.push(
-          updateBranch(branchToUpdate.id, { lastWorked: newDate })
+          updateBranch(branchToUpdate.id, updatePayload)
         );
         updatedCount++;
       }
@@ -167,12 +175,12 @@ const updateLastWorkedFromTicketDataTool = ai.defineTool(
       await Promise.all(updatePromises);
     }
     
-    return `Successfully processed the JSON data. Updated the 'lastWorked' status for ${updatedCount} branches.`;
+    return `Successfully processed the JSON data. Updated ticket counts for ${updatedCount} branches and 'lastWorked' status for ${lastWorkedUpdatedCount} branches.`;
   }
 );
 
 
-const allTools = {
+const allTools: Record<string, any> = {
   getBranches: getBranchesTool,
   getAllIssues: getAllIssuesTool,
   logIssue: logIssueTool,

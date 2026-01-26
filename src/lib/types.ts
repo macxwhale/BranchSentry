@@ -4,6 +4,7 @@ export type Branch = {
   name: string;
   ipAddress: string;
   lastWorked?: string; // ISO string
+  totalTickets?: number;
 };
 
 export type Issue = {

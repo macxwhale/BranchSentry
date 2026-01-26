@@ -32,6 +32,7 @@ export async function POST(request: Request) {
         const branchesByName = new Map(allBranches.map(b => [b.name.toLowerCase(), b]));
 
         let updatedCount = 0;
+        let lastWorkedUpdatedCount = 0;
         const updatePromises: Promise<any>[] = [];
         const newDate = new Date().toISOString();
 
@@ -46,10 +47,18 @@ export async function POST(request: Request) {
 
             const branchToUpdate = branchesByName.get(name.toLowerCase());
 
-            if (branchToUpdate && totalTickets > 0) {
-                // Use the existing firestore helper function
+            if (branchToUpdate) {
+                const updatePayload: Partial<Omit<Branch, "id">> = {
+                    totalTickets: totalTickets,
+                };
+                
+                if (totalTickets > 0) {
+                    updatePayload.lastWorked = newDate;
+                    lastWorkedUpdatedCount++;
+                }
+
                 updatePromises.push(
-                    updateBranch(branchToUpdate.id, { lastWorked: newDate })
+                    updateBranch(branchToUpdate.id, updatePayload)
                 );
                 updatedCount++;
             }
@@ -60,7 +69,7 @@ export async function POST(request: Request) {
         }
     
         return NextResponse.json({ 
-            message: `Successfully processed the request. Updated the 'lastWorked' status for ${updatedCount} branches.`,
+            message: `Successfully processed ${branchesToProcess.length} records. Updated ticket counts for ${updatedCount} branches and 'lastWorked' status for ${lastWorkedUpdatedCount} branches.`,
             updatedCount: updatedCount,
         });
 
