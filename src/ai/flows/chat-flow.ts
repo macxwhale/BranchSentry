@@ -214,7 +214,20 @@ const chatFlow = ai.defineFlow(
     outputSchema: z.string(),
   },
   async (query) => {
-    const llmResponse = await chatPrompt(query);
+    let llmResponse = await chatPrompt(query);
+
+    while (llmResponse.toolRequests.length > 0) {
+      const toolResponses = await Promise.all(
+        llmResponse.toolRequests.map(async (toolRequest) => {
+          return {
+            toolResult: await ai.runTool(toolRequest),
+          };
+        })
+      );
+      
+      llmResponse = await chatPrompt(query, { toolResponses });
+    }
+    
     return llmResponse.text;
   }
 );
