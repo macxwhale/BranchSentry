@@ -119,19 +119,24 @@ const getDateFromDaysAgoTool = ai.defineTool(
 const updateLastWorkedFromTicketDataTool = ai.defineTool(
   {
     name: 'updateLastWorkedFromTicketData',
-    description: 'Processes a list of branches with their total ticket counts and updates their `lastWorked` status in the database. This should be used when the user provides a block of text/CSV data with branch names and ticket counts and asks to update their status.',
+    description: 'Processes a list of branches with their total ticket counts and updates their `lastWorked` status in the database. This should be used when the user provides a JSON string containing an array of branch objects and asks to update their status.',
     inputSchema: z.object({
-      branchData: z.string().describe('A string containing branch data. Each line should contain branch name, IP address, and total tickets, separated by tabs.'),
+      branchData: z.string().describe('A JSON string representing an array of branch objects. Each object must have "name" (string) and "totalTickets" (number) properties.'),
     }),
     outputSchema: z.string(),
   },
   async ({ branchData }) => {
-    const lines = branchData.trim().split('\n').slice(1); // Skip header
-    if (lines.length === 0) {
-      return "Error: No data provided to process.";
+    let branchesToProcess: { name: string; totalTickets: number }[];
+    try {
+      branchesToProcess = JSON.parse(branchData);
+    } catch (e) {
+      return "Error: The provided data is not a valid JSON string. Please provide the data in the correct JSON format.";
     }
 
-    // 1. Get all branches from Firestore
+    if (!Array.isArray(branchesToProcess) || branchesToProcess.length === 0) {
+      return "Error: No data provided to process, or the JSON is not an array.";
+    }
+    
     const branchesCol = collection(db, 'branches');
     const branchSnapshot = await getDocs(branchesCol);
     const allBranches = branchSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Branch));
@@ -141,18 +146,15 @@ const updateLastWorkedFromTicketDataTool = ai.defineTool(
     const updatePromises: Promise<any>[] = [];
     const newDate = new Date().toISOString();
 
-    // 2. Process provided data
-    for (const line of lines) {
-      const parts = line.split('\t'); // Assuming tab-separated
-      if (parts.length < 3) continue;
-
-      const name = parts[0].trim();
-      const totalTickets = parseInt(parts[2].trim(), 10);
+    for (const branch of branchesToProcess) {
+      if (!branch.name || typeof branch.totalTickets !== 'number') continue;
+      
+      const name = branch.name.trim();
+      const totalTickets = branch.totalTickets;
 
       const branchToUpdate = branchesByName.get(name.toLowerCase());
 
-      if (branchToUpdate && !isNaN(totalTickets) && totalTickets > 0) {
-        // 3. Update lastWorked if tickets > 0
+      if (branchToUpdate && totalTickets > 0) {
         updatePromises.push(
           updateBranch(branchToUpdate.id, { lastWorked: newDate })
         );
@@ -164,7 +166,7 @@ const updateLastWorkedFromTicketDataTool = ai.defineTool(
       await Promise.all(updatePromises);
     }
     
-    return `Successfully processed the data. Updated the 'lastWorked' status for ${updatedCount} branches.`;
+    return `Successfully processed the JSON data. Updated the 'lastWorked' status for ${updatedCount} branches.`;
   }
 );
 
@@ -187,7 +189,7 @@ const chatPrompt = ai.definePrompt(
         *   Use 'getAllIssues' for any questions about issues (like status, description, or responsibility).
         *   Use 'logIssue' when the user asks you to create, log, or add a new issue. You will need to ask for the branch name, description, and who is responsible if it is not provided.
         *   Use 'getDateFromDaysAgo' when the user asks a question about a specific time period, like "in the last week" or "in the last 30 days".
-        *   Use 'updateLastWorkedFromTicketData' when the user provides a block of text or CSV-like data containing branch names and ticket counts, and asks to update the system based on this data. The tool will handle updating the 'lastWorked' date for branches with more than zero tickets.
+        *   Use 'updateLastWorkedFromTicketData' when the user provides a JSON string containing an array of branch objects, and asks to update the system based on this data. The tool will handle updating the 'lastWorked' date for branches with more than zero tickets.
 
       2.  **Answering Questions About Specific Branches:**
         *   To answer a question like "What issues does Tarime branch have?", you must first find the branch in the output of 'getBranches'. **Perform a case-insensitive search** for the branch name.
