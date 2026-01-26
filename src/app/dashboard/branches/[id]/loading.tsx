@@ -8,8 +8,8 @@ import {
 export default function Loading() {
   return (
     <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
                 <CardHeader className="pb-2">
                     <Skeleton className="h-4 w-3/4" />

@@ -48,6 +48,9 @@ export default function DashboardLoading() {
                   <TableHead className="hidden md:table-cell">
                     Last Worked
                   </TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Total Tickets
+                  </TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -67,6 +70,9 @@ export default function DashboardLoading() {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <Skeleton className="h-5 w-24" />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Skeleton className="h-5 w-10" />
                     </TableCell>
                     <TableCell>
                       <Skeleton className="h-8 w-8" />

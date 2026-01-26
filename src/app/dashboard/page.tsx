@@ -65,9 +65,17 @@ export default function Dashboard() {
 
   const loading = branchesLoading || issuesLoading;
 
+  const branchesWithTicketCount = React.useMemo(() => {
+    if (!branches || !allIssues) return [];
+    return branches.map(branch => {
+        const totalTickets = allIssues.filter(issue => issue.branchId === branch.id && !!issue.ticketNumber).length;
+        return { ...branch, totalTickets };
+    });
+  }, [branches, allIssues]);
+
   const filteredAndSortedBranches = React.useMemo(() => {
-    if (!branches) return [];
-    return branches
+    if (!branchesWithTicketCount) return [];
+    return branchesWithTicketCount
       .filter(
         (branch) =>
           branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,7 +95,7 @@ export default function Dashboard() {
             return 0;
         }
       });
-  }, [branches, searchTerm, sortOption]);
+  }, [branchesWithTicketCount, searchTerm, sortOption]);
   
   const branchesWithLatestOpenIssue = React.useMemo(() => {
     if (!branches || !allIssues) return [];
@@ -365,6 +373,9 @@ export default function Dashboard() {
                   <TableHead className="hidden md:table-cell">
                     Last Worked
                   </TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Total Tickets
+                  </TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -373,7 +384,7 @@ export default function Dashboard() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">Loading...</TableCell>
+                    <TableCell colSpan={6} className="text-center">Loading...</TableCell>
                   </TableRow>
                 ) : (
                   filteredAndSortedBranches.map((branch) => (
@@ -391,6 +402,9 @@ export default function Dashboard() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         {branch.lastWorked ? format(new Date(branch.lastWorked), "dd MMM yyyy, p") : 'N/A'}
+                      </TableCell>
+                       <TableCell className="hidden md:table-cell">
+                        {branch.totalTickets}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

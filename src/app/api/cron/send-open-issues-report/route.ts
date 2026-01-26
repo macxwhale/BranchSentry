@@ -9,44 +9,67 @@ import { db } from '@/lib/firebase';
 
 const DEFAULT_CONFIG_ID = "default";
 
-function formatDefaultIssueList(issues: Issue[], branchesById: Record<string, Branch>): string {
+function formatDefaultIssueList(
+    issues: Issue[],
+    branchesById: Record<string, Branch>,
+    ticketsByBranchId: Record<string, number>
+): string {
+    if (issues.length === 0) return "No open issues.\n";
+
+    const issuesByBranch = issues.reduce((acc, issue) => {
+        if (!acc[issue.branchId]) {
+            acc[issue.branchId] = [];
+        }
+        acc[issue.branchId].push(issue);
+        return acc;
+    }, {} as Record<string, Issue[]>);
+
     let issueListStr = "";
-    issues.forEach(issue => {
-        const branch = branchesById[issue.branchId];
+
+    for (const branchId in issuesByBranch) {
+        const branch = branchesById[branchId];
         const branchName = branch?.name || 'Unknown Branch';
-        
+        const branchIssues = issuesByBranch[branchId];
+        const totalTickets = ticketsByBranchId[branchId] || 0;
+
         let branchTitle = `**🏢 Branch: ${branchName}**`;
         if (branch?.lastWorked) {
             branchTitle += ` (Last worked: ${format(new Date(branch.lastWorked), 'dd MMM p')})`;
         }
+        branchTitle += ` (Total Tickets: ${totalTickets})`;
+
         issueListStr += `${branchTitle}\n`;
 
-        issueListStr += `📊 Status: ${issue.status}\n`;
-        issueListStr += `🐛 Issue: ${issue.description}\n`;
+        branchIssues.forEach(issue => {
+            issueListStr += `  - 📊 Status: ${issue.status}\n`;
+            issueListStr += `    🐛 Issue: ${issue.description}\n`;
 
-        if (issue.ticketNumber) {
-            if (issue.ticketUrl) {
-                issueListStr += `🎟️ Ticket: [${issue.ticketNumber}](${issue.ticketUrl})\n`;
-            } else {
-                issueListStr += `🎟️ Ticket: ${issue.ticketNumber}\n`;
+            if (issue.ticketNumber) {
+                if (issue.ticketUrl) {
+                    issueListStr += `    🎟️ Ticket: [${issue.ticketNumber}](${issue.ticketUrl})\n`;
+                } else {
+                    issueListStr += `    🎟️ Ticket: ${issue.ticketNumber}\n`;
+                }
             }
-        }
-        
-        issueListStr += `_(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n\n`;
-    });
+            issueListStr += `    _(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n`;
+        });
+        issueListStr += "\n";
+    }
+
     return issueListStr;
 }
 
 function formatReportBody(
     config: ReportConfiguration, 
     issues: Issue[], 
-    branchesById: Record<string, Branch>
+    branchesById: Record<string, Branch>,
+    ticketsByBranchId: Record<string, number>
 ): { title: string, body: string } {
     const assignee = config.id;
     const issueCount = issues.length;
     const currentDate = format(new Date(), 'dd MMM yyyy');
 
-    const issueList = formatDefaultIssueList(issues, branchesById);
+    const issueList = formatDefaultIssueList(issues, branchesById, ticketsByBranchId);
 
     // Default title and body
     let title = `🚨 ${issueCount} Open Issues Report for ${assignee}`;
@@ -74,8 +97,13 @@ function formatReportBody(
 }
 
 
-async function sendConfiguredReport(config: ReportConfiguration, issues: Issue[], branchesById: Record<string, Branch>) {
-    const { title, body } = formatReportBody(config, issues, branchesById);
+async function sendConfiguredReport(
+    config: ReportConfiguration, 
+    issues: Issue[], 
+    branchesById: Record<string, Branch>, 
+    ticketsByBranchId: Record<string, number>
+) {
+    const { title, body } = formatReportBody(config, issues, branchesById, ticketsByBranchId);
 
     const notificationPayload: Parameters<typeof sendNotificationApi>[0] = {
         channel: config.channel || 'telegram',
@@ -128,6 +156,16 @@ export async function GET(request: Request) {
       return acc;
     }, {} as Record<string, Branch>);
 
+    const ticketsByBranchId = allIssues.reduce((acc, issue) => {
+        if (issue.ticketNumber) {
+            if (!acc[issue.branchId]) {
+                acc[issue.branchId] = 0;
+            }
+            acc[issue.branchId]++;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+
     const issuesByResponsibility = openIssues.reduce((acc, issue) => {
       const { responsibility } = issue;
       if (!acc[responsibility]) {
@@ -167,7 +205,7 @@ export async function GET(request: Request) {
             // Merge defaults with team-specific settings
             const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
             
-            await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
+            await sendConfiguredReport(finalConfig, issuesForTeam, branchesById, ticketsByBranchId);
             reportsSentCount++;
         }
         
@@ -197,7 +235,7 @@ export async function GET(request: Request) {
 
             // Only send if the merged config is enabled
             if (finalConfig.enabled) {
-                await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
+                await sendConfiguredReport(finalConfig, issuesForTeam, branchesById, ticketsByBranchId);
                 reportsSentCount++;
             }
         }

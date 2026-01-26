@@ -215,7 +215,7 @@ export default function BranchDetailPage() {
 
   return (
     <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Branch Name</CardDescription>
@@ -247,6 +247,14 @@ export default function BranchDetailPage() {
             <CardDescription>Open Issues</CardDescription>
             <CardTitle className="text-2xl">
               {issues?.filter((i) => i.status !== "Resolved").length || 0}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Tickets</CardDescription>
+            <CardTitle className="text-2xl">
+              {issues?.filter((i) => !!i.ticketNumber).length || 0}
             </CardTitle>
           </CardHeader>
         </Card>
