@@ -72,7 +72,7 @@ export default function Dashboard() {
     if (!branches || !allIssues) return [];
 
     const ticketCounts = allIssues.reduce((acc, issue) => {
-        if (issue.ticketNumber && issue.branchId) {
+        if (issue.ticketNumber && issue.ticketNumber.trim() !== '' && issue.branchId) {
             acc[issue.branchId] = (acc[issue.branchId] || 0) + 1;
         }
         return acc;
@@ -409,7 +409,7 @@ export default function Dashboard() {
               </Form>
             </DialogContent>
           </Dialog>
-           <Dialog open={isJsonUpdateDialogOpen} onOpenChange={setIsJsonUpdateDialogOpen}>
+          <Dialog open={isJsonUpdateDialogOpen} onOpenChange={setIsJsonUpdateDialogOpen}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Update Branches from JSON</DialogTitle>
@@ -419,7 +419,7 @@ export default function Dashboard() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <Textarea
-                        placeholder='[{ "name": "Mlimani City", "totalTickets": 496 }]'
+                        placeholder={`[{ "name": "Mlimani City", "totalTickets": 496 }]`}
                         className="min-h-[200px] font-mono"
                         value={jsonInput}
                         onChange={(e) => setJsonInput(e.target.value)}
