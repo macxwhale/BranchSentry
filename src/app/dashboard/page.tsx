@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { File, PlusCircle, Search, MoreHorizontal, Upload } from "lucide-react"
+import { File, PlusCircle, Search, MoreHorizontal, Upload, FileCode } from "lucide-react"
 import Papa from "papaparse"
 import { format } from "date-fns"
 import { collection } from "firebase/firestore";
@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { Branch, Issue } from "@/lib/types"
 import { addBranch, deleteBranch, updateBranch } from "@/lib/firestore"
@@ -44,6 +45,8 @@ export default function Dashboard() {
   const [openIssuesBranchFilter, setOpenIssuesBranchFilter] = React.useState('');
   const [openIssuesDescriptionFilter, setOpenIssuesDescriptionFilter] = React.useState('');
   const [openIssuesAssignedToFilter, setOpenIssuesAssignedToFilter] = React.useState('');
+  const [isJsonUpdateDialogOpen, setIsJsonUpdateDialogOpen] = React.useState(false)
+  const [jsonInput, setJsonInput] = React.useState("")
 
   const form = useForm<BranchFormValues>({
     resolver: zodResolver(branchSchema),
@@ -98,7 +101,7 @@ export default function Dashboard() {
           case "id-asc":
             return a.branchId.localeCompare(b.branchId, undefined, { numeric: true });
           case "id-desc":
-            return b.branchId.localeCompare(a.branchId, undefined, { numeric: true });
+            return b.branchId.localeCompare(b.branchId, undefined, { numeric: true });
           default:
             return 0;
         }
@@ -258,6 +261,49 @@ export default function Dashboard() {
     event.target.value = '';
   };
   
+  const handleJsonUpdate = async () => {
+    let branchesToUpdate;
+    try {
+        branchesToUpdate = JSON.parse(jsonInput);
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Invalid JSON",
+            description: "The provided text is not valid JSON.",
+        });
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/update-branches', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(branchesToUpdate),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to update branches.');
+        }
+
+        toast({
+            title: "Update Successful",
+            description: result.message,
+        });
+        setIsJsonUpdateDialogOpen(false);
+        setJsonInput("");
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Error updating branches",
+            description: error.message || "Could not update branches.",
+        });
+    }
+  };
+
   return (
     <Tabs defaultValue="all">
       <div className="flex items-center">
@@ -272,6 +318,10 @@ export default function Dashboard() {
                Upload CSV
                <Input id="csv-upload" type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
             </Label>
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setIsJsonUpdateDialogOpen(true)}>
+            <FileCode className="h-3.5 w-3.5 mr-2" />
+            Update from JSON
           </Button>
           <Select value={sortOption} onValueChange={setSortOption}>
             <SelectTrigger className="w-[180px]">
@@ -357,6 +407,28 @@ export default function Dashboard() {
                   </DialogFooter>
                 </form>
               </Form>
+            </DialogContent>
+          </Dialog>
+           <Dialog open={isJsonUpdateDialogOpen} onOpenChange={setIsJsonUpdateDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Update Branches from JSON</DialogTitle>
+                    <DialogDescription>
+                        Paste the JSON array of branches to update their 'last worked' status.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <Textarea
+                        placeholder='[{ "name": "Mlimani City", "totalTickets": 496 }]'
+                        className="min-h-[200px] font-mono"
+                        value={jsonInput}
+                        onChange={(e) => setJsonInput(e.target.value)}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsJsonUpdateDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleJsonUpdate}>Update Branches</Button>
+                </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
