@@ -83,15 +83,15 @@ function formatReportBody(
     body += `There are currently **${issueCount}** open or in-progress issues assigned to you.\n\n---\n\n`;
     body += issueList;
 
-    // Use custom templates if they exist
-    if (config.reportTitle) {
+    // Use custom templates if they exist and are valid strings
+    if (typeof config.reportTitle === 'string' && config.reportTitle) {
         title = config.reportTitle
             .replace(/{assignee}/g, assignee)
             .replace(/{issueCount}/g, issueCount.toString())
             .replace(/{date}/g, currentDate);
     }
 
-    if (config.reportBody) {
+    if (typeof config.reportBody === 'string' && config.reportBody) {
         body = config.reportBody
             .replace(/{assignee}/g, assignee)
             .replace(/{issueCount}/g, issueCount.toString())
