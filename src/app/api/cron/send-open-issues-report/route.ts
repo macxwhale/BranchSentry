@@ -35,7 +35,10 @@ function formatDefaultIssueList(
 
         let branchTitle = `**🏢 Branch: ${branchName}**`;
         if (branch.lastWorked) {
-            branchTitle += ` (Last worked: ${format(new Date(branch.lastWorked), 'dd MMM p')})`;
+            const lastWorkedDate = new Date(branch.lastWorked);
+            if (!isNaN(lastWorkedDate.getTime())) {
+                branchTitle += ` (Last worked: ${format(lastWorkedDate, 'dd MMM p')})`;
+            }
         }
         branchTitle += ` (Total Tickets: ${totalTickets})`;
 
@@ -52,7 +55,10 @@ function formatDefaultIssueList(
                     issueListStr += `    🎟️ Ticket: ${issue.ticketNumber}\n`;
                 }
             }
-            issueListStr += `    _(Opened: ${format(new Date(issue.date), 'dd MMM')})_\n`;
+            const issueDate = new Date(issue.date);
+            if (!isNaN(issueDate.getTime())) {
+                issueListStr += `    _(Opened: ${format(issueDate, 'dd MMM')})_\n`;
+            }
         });
         issueListStr += "\n";
     }
