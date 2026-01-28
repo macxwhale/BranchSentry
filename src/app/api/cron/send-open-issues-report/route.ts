@@ -200,11 +200,13 @@ export async function GET(request: Request) {
             // Merge defaults with team-specific settings
             const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
             
-            await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
-            reportsSentCount++;
+            if (finalConfig.enabled) {
+                await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
+                reportsSentCount++;
+            }
         }
         
-        return NextResponse.json({ message: `Manually triggered ${reportsSentCount} report(s) successfully.` });
+        return NextResponse.json({ message: `Manually triggered ${reportsSentCount} report(s). Reports for disabled teams were skipped.` });
     }
 
     // --- Scheduled Cron Job Logic ---
@@ -217,22 +219,19 @@ export async function GET(request: Request) {
     const currentTimeEAT = format(now, 'HH:mm', { timeZone: 'Africa/Nairobi' });
     let reportsSentCount = 0;
     
-    // Check if it's time to send reports based on the default configuration's time
-    if (defaultConfig.enabled && defaultConfig.time === currentTimeEAT) {
-        const responsiblePartiesWithOpenIssues = Object.keys(issuesByResponsibility);
+    const responsiblePartiesWithOpenIssues = Object.keys(issuesByResponsibility);
 
-        for (const team of responsiblePartiesWithOpenIssues) {
-            const issuesForTeam = issuesByResponsibility[team];
-            const teamSpecificConfig = configMap.get(team) || {};
-            
-            // Merge defaults with team-specific settings
-            const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
+    for (const team of responsiblePartiesWithOpenIssues) {
+        const issuesForTeam = issuesByResponsibility[team];
+        const teamSpecificConfig = configMap.get(team) || {};
+        
+        // Merge defaults with team-specific settings
+        const finalConfig = { ...defaultConfig, ...teamSpecificConfig, id: team };
 
-            // Only send if the merged config is enabled
-            if (finalConfig.enabled) {
-                await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
-                reportsSentCount++;
-            }
+        // Check time and enabled status for each team's final configuration
+        if (finalConfig.enabled && finalConfig.time === currentTimeEAT) {
+            await sendConfiguredReport(finalConfig, issuesForTeam, branchesById);
+            reportsSentCount++;
         }
     }
     
