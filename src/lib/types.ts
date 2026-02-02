@@ -30,3 +30,22 @@ export type ReportConfiguration = {
   notify_type?: 'success' | 'info' | 'warning' | 'error';
   silent?: boolean;
 };
+
+export type SparePart = {
+  id: string;
+  name: string;
+  partNumber?: string;
+  quantity: number;
+  description?: string;
+};
+
+export type SparePartLog = {
+  id: string;
+  branchId: string;
+  sparePartId: string;
+  sparePartName: string; // Denormalized for easier display
+  type: 'Replaced' | 'Returned';
+  quantity: number;
+  date: string; // ISO string
+  notes?: string;
+};

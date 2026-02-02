@@ -3,10 +3,10 @@
 
 import * as React from "react"
 import { useParams } from "next/navigation"
-import { Copy, MoreHorizontal, PlusCircle, Search } from "lucide-react"
+import { Copy, MoreHorizontal, PlusCircle, Search, Wrench } from "lucide-react"
 import { format } from "date-fns"
 import { collection, query, where, doc } from "firebase/firestore";
-import { useForm } from "react-hook-form";
+import { useForm, useForm as useSparePartForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
@@ -21,8 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Branch, Issue } from "@/lib/types"
-import { addIssue, deleteIssue, updateIssue } from "@/lib/firestore"
+import { Branch, Issue, SparePart, SparePartLog } from "@/lib/types"
+import { addIssue, deleteIssue, updateIssue, addSparePartLog } from "@/lib/firestore"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
@@ -31,6 +31,7 @@ import { useDoc } from "@/hooks/use-doc"
 import { useCollection } from "@/hooks/use-collection"
 import { db } from "@/lib/firebase"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 
 const issueSchema = z.object({
@@ -44,19 +45,32 @@ const issueSchema = z.object({
 
 type IssueFormValues = z.infer<typeof issueSchema>;
 
+const sparePartLogSchema = z.object({
+    sparePartId: z.string().min(1, "You must select a spare part."),
+    type: z.enum(["Replaced", "Returned"]),
+    quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+    notes: z.string().optional(),
+});
+
+type SparePartLogFormValues = z.infer<typeof sparePartLogSchema>;
+
 export default function BranchDetailPage() {
   const params = useParams()
   const branchId = params.id as string
 
-  const [searchTerm, setSearchTerm] = React.useState("")
+  // State for Issues
+  const [issueSearchTerm, setIssueSearchTerm] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState("all")
-  const [sortOption, setSortOption] = React.useState("date-desc")
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [issueSortOption, setIssueSortOption] = React.useState("date-desc")
+  const [isIssueDialogOpen, setIsIssueDialogOpen] = React.useState(false)
   const [currentIssue, setCurrentIssue] = React.useState<Issue | null>(null)
+  
+  // State for Spare Parts
+  const [isSparePartLogDialogOpen, setIsSparePartLogDialogOpen] = React.useState(false);
 
   const { toast } = useToast()
 
-  const form = useForm<IssueFormValues>({
+  const issueForm = useForm<IssueFormValues>({
     resolver: zodResolver(issueSchema),
     defaultValues: {
       description: "",
@@ -67,7 +81,17 @@ export default function BranchDetailPage() {
       ticketUrl: "",
     },
   });
+  
+  const sparePartLogForm = useSparePartForm<SparePartLogFormValues>({
+    resolver: zodResolver(sparePartLogSchema),
+    defaultValues: {
+        type: "Replaced",
+        quantity: 1,
+        notes: "",
+    },
+  });
 
+  // Data Fetching
   const { data: branch, loading: branchLoading } = useDoc<Branch>(
     React.useMemo(() => (branchId ? doc(db, 'branches', branchId) : null), [branchId])
   );
@@ -76,17 +100,26 @@ export default function BranchDetailPage() {
     React.useMemo(() => (branchId ? query(collection(db, 'issues'), where('branchId', '==', branchId)) : null), [branchId])
   );
 
+  const { data: sparePartLogs, loading: sparePartLogsLoading } = useCollection<SparePartLog>(
+    React.useMemo(() => (branchId ? query(collection(db, 'spare_part_logs'), where('branchId', '==', branchId)) : null), [branchId])
+  );
+  
+  const { data: spareParts, loading: sparePartsLoading } = useCollection<SparePart>(
+    React.useMemo(() => query(collection(db, 'spare_parts')), [])
+  );
+
+
   const filteredIssues = React.useMemo(() => {
     if (!issues) return [];
     return issues
     .filter((issue) => statusFilter === "all" || issue.status === statusFilter)
     .filter(
       (issue) =>
-        issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.responsibility.toLowerCase().includes(searchTerm.toLowerCase())
+        issue.description.toLowerCase().includes(issueSearchTerm.toLowerCase()) ||
+        issue.responsibility.toLowerCase().includes(issueSearchTerm.toLowerCase())
     )
     .sort((a, b) => {
-      switch (sortOption) {
+      switch (issueSortOption) {
         case "date-asc":
           return new Date(a.date).getTime() - new Date(b.date).getTime();
         case "date-desc":
@@ -113,12 +146,12 @@ export default function BranchDetailPage() {
           return new Date(b.date).getTime() - new Date(a.date).getTime();
       }
     });
-  }, [issues, statusFilter, searchTerm, sortOption]);
+  }, [issues, statusFilter, issueSearchTerm, issueSortOption]);
 
-  const handleOpenDialog = (issue: Issue | null) => {
+  const handleOpenIssueDialog = (issue: Issue | null) => {
     setCurrentIssue(issue)
     if (issue) {
-      form.reset({
+      issueForm.reset({
         description: issue.description,
         responsibility: issue.responsibility,
         status: issue.status,
@@ -127,9 +160,9 @@ export default function BranchDetailPage() {
         ticketUrl: issue.ticketUrl || "",
       });
     } else {
-      form.reset();
+      issueForm.reset();
     }
-    setIsDialogOpen(true)
+    setIsIssueDialogOpen(true)
   }
 
   const handleSaveIssue = async (values: IssueFormValues) => {
@@ -166,10 +199,32 @@ export default function BranchDetailPage() {
       toast({ variant: "destructive", title: "Error", description: "Failed to save issue." });
     }
 
-    setIsDialogOpen(false)
+    setIsIssueDialogOpen(false)
   };
 
-  
+  const handleSaveSparePartLog = async (values: SparePartLogFormValues) => {
+    if (!branchId) return;
+    
+    const logData = {
+        ...values,
+        branchId: branchId,
+        date: new Date().toISOString(),
+    };
+
+    try {
+        await addSparePartLog(logData);
+        toast({ title: "Success", description: "Spare part log created successfully." });
+        setIsSparePartLogDialogOpen(false);
+        sparePartLogForm.reset();
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Error logging spare part",
+            description: error.message || "Could not log the spare part usage.",
+        });
+    }
+  };
+
   const handleDeleteIssue = async (id: string) => {
     try {
         await deleteIssue(id);
@@ -265,9 +320,9 @@ export default function BranchDetailPage() {
             <h1 className="text-xl font-semibold">Issue History</h1>
           </div>
           <div className="ml-auto flex items-center gap-2">
-             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+             <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="h-8 gap-1" onClick={() => handleOpenDialog(null)}>
+                <Button size="sm" className="h-8 gap-1" onClick={() => handleOpenIssueDialog(null)}>
                   <PlusCircle className="h-3.5 w-3.5" />
                   <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                     Log Issue
@@ -278,10 +333,10 @@ export default function BranchDetailPage() {
                 <DialogHeader>
                   <DialogTitle>{currentIssue ? "Edit Issue" : "Log New Issue"}</DialogTitle>
                 </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleSaveIssue)} className="grid gap-4 py-4">
+                <Form {...issueForm}>
+                  <form onSubmit={issueForm.handleSubmit(handleSaveIssue)} className="grid gap-4 py-4">
                     <FormField
-                      control={form.control}
+                      control={issueForm.control}
                       name="description"
                       render={({ field }) => (
                         <FormItem>
@@ -295,7 +350,7 @@ export default function BranchDetailPage() {
                     />
                     <div className="grid grid-cols-2 gap-4">
                        <FormField
-                        control={form.control}
+                        control={issueForm.control}
                         name="ticketNumber"
                         render={({ field }) => (
                           <FormItem>
@@ -308,7 +363,7 @@ export default function BranchDetailPage() {
                         )}
                       />
                        <FormField
-                        control={form.control}
+                        control={issueForm.control}
                         name="ticketUrl"
                         render={({ field }) => (
                           <FormItem>
@@ -323,7 +378,7 @@ export default function BranchDetailPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
-                        control={form.control}
+                        control={issueForm.control}
                         name="responsibility"
                         render={({ field }) => (
                           <FormItem>
@@ -345,7 +400,7 @@ export default function BranchDetailPage() {
                         )}
                       />
                       <FormField
-                        control={form.control}
+                        control={issueForm.control}
                         name="status"
                         render={({ field }) => (
                           <FormItem>
@@ -368,7 +423,7 @@ export default function BranchDetailPage() {
                       />
                     </div>
                     <FormField
-                      control={form.control}
+                      control={issueForm.control}
                       name="date"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
@@ -406,7 +461,7 @@ export default function BranchDetailPage() {
                       )}
                     />
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                      <Button variant="outline" onClick={() => setIsIssueDialogOpen(false)}>Cancel</Button>
                       <Button type="submit">Save</Button>
                     </DialogFooter>
                   </form>
@@ -428,8 +483,8 @@ export default function BranchDetailPage() {
                       type="search"
                       placeholder="Search by keyword or person..."
                       className="w-full rounded-lg bg-background pl-8"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      value={issueSearchTerm}
+                      onChange={(e) => setIssueSearchTerm(e.target.value)}
                     />
                  </div>
                  <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -443,7 +498,7 @@ export default function BranchDetailPage() {
                       <SelectItem value="Resolved">Resolved</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={sortOption} onValueChange={setSortOption}>
+                  <Select value={issueSortOption} onValueChange={setIssueSortOption}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
@@ -517,7 +572,7 @@ export default function BranchDetailPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onSelect={() => handleOpenDialog(issue)}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleOpenIssueDialog(issue)}>Edit</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => handleCloneIssue(issue)}>
                                 <Copy className="mr-2 h-4 w-4" />
                                 Clone
@@ -539,6 +594,170 @@ export default function BranchDetailPage() {
               </Table>
             </CardContent>
           </Card>
+      </div>
+      <div className="grid gap-4">
+        <div className="flex items-center">
+            <h1 className="text-xl font-semibold">Spare Part History</h1>
+            <div className="ml-auto flex items-center gap-2">
+                <Dialog open={isSparePartLogDialogOpen} onOpenChange={setIsSparePartLogDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button size="sm" className="h-8 gap-1">
+                            <Wrench className="h-3.5 w-3.5" />
+                            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                                Log Spare Part
+                            </span>
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Log Spare Part Usage</DialogTitle>
+                        </DialogHeader>
+                        <Form {...sparePartLogForm}>
+                            <form onSubmit={sparePartLogForm.handleSubmit(handleSaveSparePartLog)} className="grid gap-4 py-4">
+                                <FormField
+                                    control={sparePartLogForm.control}
+                                    name="sparePartId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Spare Part</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a spare part" />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {sparePartsLoading ? (
+                                                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                                                    ) : (
+                                                        spareParts?.map(part => (
+                                                            <SelectItem key={part.id} value={part.id}>
+                                                                {part.name} ({part.quantity} in stock)
+                                                            </SelectItem>
+                                                        ))
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={sparePartLogForm.control}
+                                    name="quantity"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Quantity</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={sparePartLogForm.control}
+                                    name="type"
+                                    render={({ field }) => (
+                                        <FormItem className="space-y-3">
+                                            <FormLabel>Type</FormLabel>
+                                            <FormControl>
+                                                <RadioGroup
+                                                onValueChange={field.onChange}
+                                                defaultValue={field.value}
+                                                className="flex space-x-4"
+                                                >
+                                                <FormItem className="flex items-center space-x-2">
+                                                    <FormControl>
+                                                    <RadioGroupItem value="Replaced" id="replaced" />
+                                                    </FormControl>
+                                                    <FormLabel htmlFor="replaced" className="font-normal">Replaced</FormLabel>
+                                                </FormItem>
+                                                <FormItem className="flex items-center space-x-2">
+                                                    <FormControl>
+                                                    <RadioGroupItem value="Returned" id="returned" />
+                                                    </FormControl>
+                                                    <FormLabel htmlFor="returned" className="font-normal">Returned</FormLabel>
+                                                </FormItem>
+                                                </RadioGroup>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                 <FormField
+                                    control={sparePartLogForm.control}
+                                    name="notes"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Notes (Optional)</FormLabel>
+                                            <FormControl>
+                                                <Textarea {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsSparePartLogDialogOpen(false)}>Cancel</Button>
+                                    <Button type="submit">Save Log</Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+        </div>
+        <Card>
+            <CardHeader className="px-7">
+                <CardTitle>Spare Parts</CardTitle>
+                <CardDescription>
+                    History of spare parts replaced or returned for this branch.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Part Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Quantity</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Notes</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {sparePartLogsLoading ? (
+                             <TableRow>
+                                <TableCell colSpan={5} className="text-center">
+                                    Loading history...
+                                </TableCell>
+                            </TableRow>
+                        ) : sparePartLogs && sparePartLogs.length > 0 ? (
+                            sparePartLogs.map((log) => (
+                                <TableRow key={log.id}>
+                                    <TableCell className="font-medium">{log.sparePartName}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={log.type === 'Replaced' ? 'destructive' : 'secondary'}>
+                                            {log.type}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>{log.quantity}</TableCell>
+                                    <TableCell>{format(new Date(log.date), "dd MMM yyyy")}</TableCell>
+                                    <TableCell>{log.notes || 'N/A'}</TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center">
+                                    No spare part history for this branch.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
       </div>
     </div>
   )

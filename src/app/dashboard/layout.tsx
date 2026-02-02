@@ -33,6 +33,7 @@ import {
   MessageCircle,
   PanelLeft,
   Settings,
+  Wrench,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/contexts/auth-context"
@@ -80,6 +81,13 @@ function DashboardLayoutContent({
             <Building2 className="h-4 w-4" />
             Branches
           </Link>
+          <Link
+            href="/dashboard/spare-parts"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary ${pathname === '/dashboard/spare-parts' ? 'bg-muted text-primary' : ''}`}
+          >
+            <Wrench className="h-4 w-4" />
+            Spare Parts
+          </Link>
            <Link
             href="/dashboard/settings"
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary ${pathname === '/dashboard/settings' ? 'bg-muted text-primary' : ''}`}
@@ -118,6 +126,13 @@ function DashboardLayoutContent({
                   <Building2 className="h-5 w-5" />
                   Branches
                 </Link>
+                <Link
+                  href="/dashboard/spare-parts"
+                  className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <Wrench className="h-5 w-5" />
+                  Spare Parts
+                </Link>
                  <Link
                   href="/dashboard/settings"
                   className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
@@ -146,6 +161,14 @@ function DashboardLayoutContent({
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
                     <BreadcrumbPage>Details</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </>
+              )}
+               {pathname.includes('/spare-parts') && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>Spare Parts</BreadcrumbPage>
                   </BreadcrumbItem>
                 </>
               )}
