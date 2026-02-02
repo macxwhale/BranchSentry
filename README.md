@@ -12,6 +12,7 @@ Branch Sentry is a comprehensive, full-stack application designed to track, log,
 - **CRUD Operations:** Full capabilities to create, read, update, and delete branches and issues.
 - **Bulk Upload:** Easily import a list of branches from a CSV file.
 - **Clone Issues:** Quickly duplicate an existing issue to streamline the process of logging recurring problems.
+- **Spare Part Management:** A complete inventory system to add, edit, and track spare parts. Log replacements and returns for each branch.
 - **Modern UI/UX:** A responsive interface built with ShadCN UI and Tailwind CSS, featuring skeleton loaders for a smooth user experience and support for both dark and light modes.
 
 ## 🚀 Tech Stack
@@ -73,3 +74,17 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## 🔧 Usage
+
+### Managing Spare Parts
+
+1.  Navigate to the **Spare Parts** page from the sidebar navigation (wrench icon).
+2.  To add a new part to your inventory, click the **Add Part** button.
+3.  Fill in the details such as the part name, quantity, and part number in the dialog that appears.
+
+### Logging Part Usage
+
+1.  Navigate to the specific **Branch Detail** page.
+2.  In the "Spare Part History" section, click the **Log Spare Part** button.
+3.  Select the part that was used, the quantity, and whether it was replaced or returned. The inventory quantity will be updated automatically.
